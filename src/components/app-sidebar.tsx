@@ -99,7 +99,7 @@ export function AppSidebar(props: AppSidebarProps) {
   const archivedThreads = threads.filter((t) => t.archived)
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar collapsible="icon" className="border-r group-data-[collapsible=icon]:border-transparent">
       <SidebarHeader className="mrr-header gap-2 p-2">
         <ProjectSwitcher {...props} onRequestDelete={setDeletingProject} />
         <Button

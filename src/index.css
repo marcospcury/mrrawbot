@@ -188,6 +188,14 @@
   .is-electron .mrr-header {
     -webkit-app-region: drag;
   }
+  /* With the sidebar collapsed to icons, the macOS traffic lights overhang
+     the main area — push the thread header content clear of them. */
+  .is-electron.is-mac
+    [data-slot="sidebar"][data-state="collapsed"]
+    ~ [data-slot="sidebar-inset"]
+    header.mrr-header {
+    padding-left: 2rem;
+  }
   /* Interactive controls inside the drag strip must stay clickable. */
   .is-electron .mrr-header :where(button, a, input, textarea, label, [role="button"], [role="combobox"]) {
     -webkit-app-region: no-drag;
