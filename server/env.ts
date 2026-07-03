@@ -1,16 +1,13 @@
-import { config as loadDotenv } from "dotenv"
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-// Load .env and MERGE with the existing system environment.
-// dotenv does NOT override variables already present in process.env, so real
-// system/shell variables win and .env only fills the gaps — exactly the
-// "merge with the system existing variables" behavior requested.
-loadDotenv()
+// No .env file: the app is configured from the UI (Settings → Providers, stored
+// encrypted in SQLite). Plain MRRAWBOT_* system environment variables remain as
+// optional overrides for the non-provider knobs below (port, db path, repo scan).
 
-// Local-only app: never allow CopilotKit's default anonymous telemetry.
+// Local-first app: never allow CopilotKit's default anonymous telemetry.
 process.env.COPILOTKIT_TELEMETRY_DISABLED = "true"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))

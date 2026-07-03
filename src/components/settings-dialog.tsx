@@ -72,8 +72,7 @@ function ProviderConfigForm({ config }: { config: ProviderConfig }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Stored encrypted in the local database. Leave a field blank to fall back to environment
-          variables and auto-detection.
+          Stored encrypted in the local database. Leave a field blank to use auto-detection.
         </p>
         <div className="space-y-1.5">
           <Label htmlFor="claude-bin" className="text-xs">

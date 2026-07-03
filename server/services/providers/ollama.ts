@@ -99,7 +99,7 @@ export function makeOllama(model: string, temperature: number | null, think?: bo
  */
 export async function runOllama(input: ProviderRunInput): Promise<ProviderRunOutput> {
   if (!env.ollamaApiKey) {
-    throw new Error("Ollama Cloud API key is not configured. Add it in Settings → Providers (or set MRRAWBOT_OLLAMA_API_KEY).")
+    throw new Error("Ollama Cloud API key is not configured. Add it in Settings → Providers.")
   }
 
   const tools = [...makeRepoTools(input.cwd, input.signal), ...makeSkillTools(input.cwd)]

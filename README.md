@@ -63,13 +63,13 @@ npm run dev      # web app at http://localhost:5173
 npm run app      # native Electron window
 ```
 
-Then open **Settings → Providers** and add your **Ollama Cloud API key** (and CLI path overrides, if the auto-detection didn't find your `claude`/`codex` binaries). Configuration is stored **encrypted in the local SQLite database** — no `.env` required.
+Then open **Settings → Providers** and add your **Ollama Cloud API key** (and CLI path overrides, if the auto-detection didn't find your `claude`/`codex` binaries). Configuration is stored **encrypted in the local SQLite database** — there is no `.env` file.
 
 `npm run dev` runs the Express backend (`:4000`) and the Vite dev server (`:5173`) together; Vite proxies `/api` to the backend.
 
-### Optional `.env` overrides
+### Advanced: environment variable overrides
 
-Power users can still use a `.env` file (see `.env.example`); it is merged with your shell environment (real shell variables win), and values saved in Settings take precedence over both.
+All configuration happens in the app; these plain system environment variables exist only as power-user overrides. Values saved in Settings take precedence over them.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ Power users can still use a `.env` file (see `.env.example`); it is merged with 
 | `MRRAWBOT_OLLAMA_MODEL` | `qwen3-coder:480b-cloud` | Default Ollama Cloud model |
 | `MRRAWBOT_CLAUDE_BIN` / `MRRAWBOT_CODEX_BIN` | auto-detected from `PATH` | Override CLI paths |
 | `MRRAWBOT_CODEX_HOME` | `~/.codex` | Where Codex auth (`auth.json`) is read from. Codex always runs in an app-managed isolated `CODEX_HOME` seeded with that auth — never your real config/skills |
-| `MRRAWBOT_OLLAMA_API_KEY` | — | Ollama Cloud key (fallback when not set in Settings) |
+| `MRRAWBOT_OLLAMA_API_KEY` | — | Ollama Cloud key (normally set in Settings instead) |
 | `MRRAWBOT_DEBUG` | — | `1` for verbose provider logs |
 
 ---
