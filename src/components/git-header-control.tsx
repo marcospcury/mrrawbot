@@ -60,7 +60,9 @@ export function GitHeaderControl({ project, thread, compact = false }: GitHeader
     ? "Create branch"
     : status.remote?.isGitHub
       ? status.pullRequest
-        ? `PR #${status.pullRequest.number}`
+        ? status.pullRequest.merged
+          ? `Merged #${status.pullRequest.number}`
+          : `PR #${status.pullRequest.number}`
         : "Open PR"
       : "Git"
 
@@ -98,6 +100,9 @@ export function GitHeaderControl({ project, thread, compact = false }: GitHeader
         thread={thread}
         status={status}
         statusRefreshing={statusQuery.isFetching}
+        refreshStatus={async () => {
+          await statusQuery.refetch()
+        }}
       />
     </>
   )
@@ -110,6 +115,7 @@ function GitProjectDialog({
   thread,
   status,
   statusRefreshing,
+  refreshStatus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -117,18 +123,33 @@ function GitProjectDialog({
   thread: Thread
   status: ProjectGitStatus
   statusRefreshing: boolean
+  refreshStatus: () => Promise<unknown>
 }) {
   const onDefaultBranch = !!status.branch && status.branch === status.defaultBranch
   const prQuery = useProjectPullRequest(project.id, open && !!status.remote?.isGitHub && !onDefaultBranch)
   const mutations = useProjectGitMutations(project.id)
   const [branchName, setBranchName] = useState(() => suggestedBranch(thread.title))
+  const [commitMode, setCommitMode] = useState<"current" | "new-branch">("current")
+  const [commitMessage, setCommitMessage] = useState(() => titleFromBranch(thread.title))
+  const [commitBranchName, setCommitBranchName] = useState(() => suggestedBranch(thread.title))
   const [prTitle, setPrTitle] = useState(() => titleFromBranch(status.branch ?? thread.title))
   const [prBody, setPrBody] = useState("")
   const [mergeMethod, setMergeMethod] = useState<GitHubMergeMethod>("squash")
   const [mergeConfirmed, setMergeConfirmed] = useState(false)
+  const [cleanupBranchName, setCleanupBranchName] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open && onDefaultBranch) setBranchName(suggestedBranch(thread.title))
+    if (!open) return
+    void refreshStatus()
+    if (status.remote?.isGitHub && !onDefaultBranch) void prQuery.refetch()
+  }, [open])
+
+  useEffect(() => {
+    if (open && onDefaultBranch) {
+      const nextBranch = suggestedBranch(thread.title)
+      setBranchName(nextBranch)
+      setCommitBranchName(nextBranch)
+    }
   }, [open, onDefaultBranch, thread.title])
 
   useEffect(() => {
@@ -140,16 +161,50 @@ function GitProjectDialog({
     if (next) setMergeMethod(next)
   }, [prQuery.data?.merge?.defaultMethod])
 
-  const details = prQuery.data
+  const details = onDefaultBranch ? undefined : prQuery.data
   const pr = details?.pullRequest ?? status.pullRequest
   const merge = details?.merge ?? null
   const canCreatePr = !!status.remote?.isGitHub && !onDefaultBranch && !pr
+  const showPush = status.canPush && !!status.branch && status.branch !== "HEAD" && (status.ahead > 0 || !status.published)
+  const cleanupBranch = cleanupBranchName ?? (pr?.merged ? pr.headRefName : null)
+
+  useEffect(() => {
+    if (pr?.merged && pr.headRefName !== status.defaultBranch) setCleanupBranchName(pr.headRefName)
+  }, [pr?.headRefName, pr?.merged, status.defaultBranch])
+
+  async function refreshAll() {
+    await refreshStatus()
+    if (status.remote?.isGitHub && !onDefaultBranch) await prQuery.refetch()
+  }
 
   async function createBranch() {
     try {
       await mutations.createBranch.mutateAsync({ name: branchName })
       toast.success("Branch created")
-      onOpenChange(false)
+      await refreshAll()
+    } catch (error) {
+      toast.error((error as Error).message)
+    }
+  }
+
+  async function commitChanges() {
+    try {
+      await mutations.commitChanges.mutateAsync({
+        message: commitMessage,
+        branchName: commitMode === "new-branch" ? commitBranchName : null,
+      })
+      toast.success("Committed changes")
+      await refreshAll()
+    } catch (error) {
+      toast.error((error as Error).message)
+    }
+  }
+
+  async function pushBranch() {
+    try {
+      await mutations.pushBranch.mutateAsync()
+      toast.success("Pushed to origin")
+      await refreshAll()
     } catch (error) {
       toast.error((error as Error).message)
     }
@@ -162,6 +217,7 @@ function GitProjectDialog({
         body: prBody.trim() || undefined,
       })
       toast.success("Pull request opened")
+      await refreshAll()
     } catch (error) {
       toast.error((error as Error).message)
     }
@@ -178,6 +234,40 @@ function GitProjectDialog({
       })
       toast.success("Pull request merged")
       setMergeConfirmed(false)
+      if (pr.headRefName !== status.defaultBranch) setCleanupBranchName(pr.headRefName)
+      await refreshAll()
+    } catch (error) {
+      toast.error((error as Error).message)
+    }
+  }
+
+  async function checkoutDefaultBranch() {
+    try {
+      await mutations.checkoutDefaultBranch.mutateAsync()
+      toast.success(`Checked out ${status.defaultBranch ?? "default branch"}`)
+      await refreshAll()
+    } catch (error) {
+      toast.error((error as Error).message)
+    }
+  }
+
+  async function pullDefaultBranch() {
+    try {
+      await mutations.pullDefaultBranch.mutateAsync()
+      toast.success("Pulled latest")
+      await refreshAll()
+    } catch (error) {
+      toast.error((error as Error).message)
+    }
+  }
+
+  async function deleteCleanupBranch() {
+    if (!cleanupBranch) return
+    try {
+      await mutations.deleteBranch.mutateAsync({ name: cleanupBranch })
+      toast.success(`Deleted ${cleanupBranch}`)
+      setCleanupBranchName(null)
+      await refreshAll()
     } catch (error) {
       toast.error((error as Error).message)
     }
@@ -201,15 +291,45 @@ function GitProjectDialog({
             </Badge>
             {status.defaultBranch && <span className="text-sm text-muted-foreground">default: {status.defaultBranch}</span>}
             {status.dirty && <Badge className="bg-amber-500 text-white">dirty</Badge>}
+            {status.branch && status.branch !== "HEAD" && (
+              <Badge variant={status.published ? "outline" : "secondary"}>
+                {status.published ? "published" : "unpublished"}
+              </Badge>
+            )}
             {statusRefreshing && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
           </div>
           <div className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
             <span>Ahead {status.ahead} / behind {status.behind}</span>
-            <span>Upstream {status.upstream ?? "none"}</span>
+            <span>{status.hasUpstream ? `Upstream ${status.upstream}` : "No upstream"}</span>
             <span>Remote {status.remote?.url ?? "none"}</span>
             <span>Head {status.headSha ? status.headSha.slice(0, 12) : "unknown"}</span>
+            <span>Remote head {status.remoteHeadSha ? status.remoteHeadSha.slice(0, 12) : "unknown"}</span>
+            <span>Synced {formatSyncTime(status.remoteFetchedAt ?? status.refreshedAt)}</span>
           </div>
+          {status.remoteFetchError && <p className="text-sm text-amber-600">Remote fetch failed: {status.remoteFetchError}</p>}
         </section>
+
+        {status.dirty && (
+          <CommitSection
+            status={status}
+            commitMode={commitMode}
+            commitMessage={commitMessage}
+            commitBranchName={commitBranchName}
+            onCommitModeChange={setCommitMode}
+            onCommitMessageChange={setCommitMessage}
+            onCommitBranchNameChange={setCommitBranchName}
+            onCommit={commitChanges}
+            committing={mutations.commitChanges.isPending}
+          />
+        )}
+
+        {showPush && (
+          <PushSection
+            status={status}
+            onPush={pushBranch}
+            pushing={mutations.pushBranch.isPending}
+          />
+        )}
 
         {onDefaultBranch ? (
           <section className="grid gap-3 rounded-lg border p-4">
@@ -288,6 +408,19 @@ function GitProjectDialog({
           </section>
         )}
 
+        {cleanupBranch && (
+          <PostMergeCleanupSection
+            status={status}
+            branchName={cleanupBranch}
+            onCheckoutDefault={checkoutDefaultBranch}
+            onPullDefault={pullDefaultBranch}
+            onDeleteBranch={deleteCleanupBranch}
+            checkingOut={mutations.checkoutDefaultBranch.isPending}
+            pulling={mutations.pullDefaultBranch.isPending}
+            deleting={mutations.deleteBranch.isPending}
+          />
+        )}
+
         {status.github?.error && <p className="text-sm text-destructive">{status.github.error}</p>}
 
         <DialogFooter showCloseButton />
@@ -337,12 +470,13 @@ function PullRequestSection({
 
   const pr = details?.pullRequest ?? status.pullRequest
   if (pr) {
+    const stateLabel = pr.merged ? "merged" : pr.draft ? "draft" : pr.state
     return (
       <section className="grid gap-2 rounded-lg border p-4">
         <div className="flex flex-wrap items-center gap-2">
           <GitPullRequest className="size-4" />
           <h3 className="text-sm font-medium">PR #{pr.number}</h3>
-          <Badge variant={pr.draft ? "secondary" : "outline"}>{pr.draft ? "draft" : pr.state}</Badge>
+          <Badge variant={pr.merged || pr.draft ? "secondary" : "outline"}>{stateLabel}</Badge>
         </div>
         <a href={pr.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:underline">
           {pr.title}
@@ -382,6 +516,171 @@ function PullRequestSection({
           Open PR
         </Button>
       </div>
+    </section>
+  )
+}
+
+function CommitSection({
+  status,
+  commitMode,
+  commitMessage,
+  commitBranchName,
+  onCommitModeChange,
+  onCommitMessageChange,
+  onCommitBranchNameChange,
+  onCommit,
+  committing,
+}: {
+  status: ProjectGitStatus
+  commitMode: "current" | "new-branch"
+  commitMessage: string
+  commitBranchName: string
+  onCommitModeChange: (value: "current" | "new-branch") => void
+  onCommitMessageChange: (value: string) => void
+  onCommitBranchNameChange: (value: string) => void
+  onCommit: () => void
+  committing: boolean
+}) {
+  const branchLabel = status.branch && status.branch !== "HEAD" ? status.branch : "current branch"
+  return (
+    <section className="grid gap-3 rounded-lg border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/10">
+      <div>
+        <h3 className="text-sm font-medium">Commit local changes</h3>
+        <p className="text-sm text-muted-foreground">
+          Commit all dirty files on {branchLabel}, or create a new branch first.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[10rem_1fr]">
+        <div className="grid gap-2">
+          <Label htmlFor="commit-target">Target</Label>
+          <Select value={commitMode} onValueChange={(value) => onCommitModeChange(value as "current" | "new-branch")}>
+            <SelectTrigger id="commit-target" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Current branch</SelectItem>
+              <SelectItem value="new-branch">New branch</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {commitMode === "new-branch" && (
+          <div className="grid gap-2">
+            <Label htmlFor="commit-branch-name">New branch</Label>
+            <Input
+              id="commit-branch-name"
+              value={commitBranchName}
+              onChange={(e) => onCommitBranchNameChange(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="commit-message">Commit message</Label>
+        <Input id="commit-message" value={commitMessage} onChange={(e) => onCommitMessageChange(e.target.value)} />
+      </div>
+      <div>
+        <Button
+          onClick={onCommit}
+          disabled={committing || !commitMessage.trim() || (commitMode === "new-branch" && !commitBranchName.trim())}
+        >
+          {committing && <Loader2 className="size-4 animate-spin" />}
+          Commit changes
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function PushSection({
+  status,
+  onPush,
+  pushing,
+}: {
+  status: ProjectGitStatus
+  onPush: () => void
+  pushing: boolean
+}) {
+  return (
+    <section className="grid gap-3 rounded-lg border p-4">
+      <div>
+        <h3 className="text-sm font-medium">Push to origin</h3>
+        <p className="text-sm text-muted-foreground">
+          {status.published
+            ? `${status.branch} is ${status.ahead} commit${status.ahead === 1 ? "" : "s"} ahead.`
+            : `${status.branch} has not been pushed to origin yet.`}
+          {" "}This does not open a PR.
+        </p>
+      </div>
+      <div>
+        <Button variant="secondary" onClick={onPush} disabled={pushing}>
+          {pushing && <Loader2 className="size-4 animate-spin" />}
+          Push to origin
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function PostMergeCleanupSection({
+  status,
+  branchName,
+  onCheckoutDefault,
+  onPullDefault,
+  onDeleteBranch,
+  checkingOut,
+  pulling,
+  deleting,
+}: {
+  status: ProjectGitStatus
+  branchName: string
+  onCheckoutDefault: () => void
+  onPullDefault: () => void
+  onDeleteBranch: () => void
+  checkingOut: boolean
+  pulling: boolean
+  deleting: boolean
+}) {
+  const defaultBranch = status.defaultBranch ?? "main"
+  const onDefaultBranch = status.branch === defaultBranch
+  const onCleanupBranch = status.branch === branchName
+  return (
+    <section className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/10">
+      <div>
+        <h3 className="text-sm font-medium">After merge cleanup</h3>
+        <p className="text-sm text-muted-foreground">
+          Keep each step separate: checkout {defaultBranch}, pull latest, then delete {branchName}.
+        </p>
+      </div>
+      {status.dirty && <p className="text-sm text-amber-600">Commit or discard local changes before switching branches.</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          onClick={onCheckoutDefault}
+          disabled={status.dirty || onDefaultBranch || checkingOut}
+        >
+          {checkingOut && <Loader2 className="size-4 animate-spin" />}
+          Checkout {defaultBranch}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onPullDefault}
+          disabled={status.dirty || !onDefaultBranch || pulling}
+        >
+          {pulling && <Loader2 className="size-4 animate-spin" />}
+          Pull latest
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onDeleteBranch}
+          disabled={onCleanupBranch || deleting}
+        >
+          {deleting && <Loader2 className="size-4 animate-spin" />}
+          Delete local branch
+        </Button>
+      </div>
+      {onCleanupBranch && (
+        <p className="text-xs text-muted-foreground">Checkout {defaultBranch} before deleting {branchName}.</p>
+      )}
     </section>
   )
 }
@@ -484,6 +783,11 @@ function toneClass(tone: "success" | "failure" | "pending" | "neutral") {
   if (tone === "failure") return "text-destructive"
   if (tone === "pending") return "text-amber-500"
   return "text-muted-foreground"
+}
+
+function formatSyncTime(value: string | null) {
+  if (!value) return "not fetched"
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
 }
 
 function suggestedBranch(title: string) {

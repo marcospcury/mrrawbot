@@ -146,6 +146,26 @@ export function useProjectGitMutations(projectId: string | null) {
       mutationFn: (input: { name: string }) => api.createProjectBranch(projectId!, input),
       onSuccess: invalidate,
     }),
+    commitChanges: useMutation({
+      mutationFn: (input: { message: string; branchName?: string | null }) => api.commitProjectChanges(projectId!, input),
+      onSuccess: invalidate,
+    }),
+    pushBranch: useMutation({
+      mutationFn: () => api.pushProjectBranch(projectId!),
+      onSuccess: invalidate,
+    }),
+    checkoutDefaultBranch: useMutation({
+      mutationFn: () => api.checkoutProjectDefaultBranch(projectId!),
+      onSuccess: invalidate,
+    }),
+    pullDefaultBranch: useMutation({
+      mutationFn: () => api.pullProjectDefaultBranch(projectId!),
+      onSuccess: invalidate,
+    }),
+    deleteBranch: useMutation({
+      mutationFn: (input: { name: string }) => api.deleteProjectBranch(projectId!, input),
+      onSuccess: invalidate,
+    }),
     createPullRequest: useMutation({
       mutationFn: (input: { title?: string; body?: string; base?: string }) =>
         api.createProjectPullRequest(projectId!, input),

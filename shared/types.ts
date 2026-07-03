@@ -119,6 +119,8 @@ export interface PullRequestSummary {
   url: string
   state: string
   draft: boolean
+  merged: boolean
+  mergedAt: string | null
   headRefName: string
   baseRefName: string
   headSha: string
@@ -131,10 +133,18 @@ export interface ProjectGitStatus {
   branch: string | null
   defaultBranch: string | null
   headSha: string | null
+  remoteHeadSha: string | null
   dirty: boolean
   ahead: number
   behind: number
   upstream: string | null
+  hasUpstream: boolean
+  published: boolean
+  canPush: boolean
+  canPull: boolean
+  refreshedAt: string
+  remoteFetchedAt: string | null
+  remoteFetchError: string | null
   remote: ProjectGitRemote | null
   pullRequest: PullRequestSummary | null
   github: {

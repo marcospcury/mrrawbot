@@ -63,6 +63,24 @@ interface StatusContext {
   client: GitHubClient | null
 }
 
+interface StatusOptions {
+  refresh?: boolean
+}
+
+interface RefreshResult {
+  remoteFetchedAt: string | null
+  remoteFetchError: string | null
+}
+
+interface AheadBehindResult {
+  ahead: number
+  behind: number
+  upstream: string | null
+  hasUpstream: boolean
+  published: boolean
+  remoteHeadSha: string | null
+}
+
 export async function defaultRunCommand(
   command: string,
   args: string[],
@@ -96,11 +114,11 @@ export async function defaultRunCommand(
 }
 
 function toCommandError(command: string, args: string[], error: unknown): Error {
-  const e = error as Error & { stdout?: string; stderr?: string }
+  const e = error as Error & { stdout?: string; stderr?: string; code?: number | string | null }
   const stderr = e.stderr?.toString().trim()
   const message = stderr || e.message || `${command} ${args.join(" ")} failed`
   const next = new Error(message)
-  Object.assign(next, { command, args, stdout: e.stdout, stderr: e.stderr })
+  Object.assign(next, { command, args, stdout: e.stdout, stderr: e.stderr, code: e.code })
   return next
 }
 
@@ -188,19 +206,39 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     return (await optionalGit(projectPath, ["config", "--get", "init.defaultBranch"])) ?? "main"
   }
 
-  async function aheadBehind(projectPath: string, branch: string | null, defaultBranch: string | null) {
-    if (!branch || branch === "HEAD") return { ahead: 0, behind: 0, upstream: null }
+  async function refreshRemote(projectPath: string, remoteUrl: string | null): Promise<RefreshResult> {
+    if (!remoteUrl) return { remoteFetchedAt: null, remoteFetchError: null }
+    try {
+      await runGit(projectPath, ["fetch", "--prune", "origin"], GITHUB_TIMEOUT_MS)
+      return { remoteFetchedAt: new Date().toISOString(), remoteFetchError: null }
+    } catch (error) {
+      return { remoteFetchedAt: null, remoteFetchError: (error as Error).message || "Remote fetch failed" }
+    }
+  }
+
+  async function aheadBehind(
+    projectPath: string,
+    branch: string | null,
+    defaultBranch: string | null,
+  ): Promise<AheadBehindResult> {
+    if (!branch || branch === "HEAD") {
+      return { ahead: 0, behind: 0, upstream: null, hasUpstream: false, published: false, remoteHeadSha: null }
+    }
 
     let upstream = await optionalGit(projectPath, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
+    const sameBranchRemote = `refs/remotes/origin/${branch}`
+    const published = await refExists(projectPath, sameBranchRemote)
     if (!upstream) {
-      const sameBranchRemote = `refs/remotes/origin/${branch}`
       const defaultRemote = defaultBranch ? `refs/remotes/origin/${defaultBranch}` : null
-      if (await refExists(projectPath, sameBranchRemote)) upstream = `origin/${branch}`
+      if (published) upstream = `origin/${branch}`
       else if (branch === defaultBranch && defaultRemote && (await refExists(projectPath, defaultRemote))) {
         upstream = `origin/${defaultBranch}`
       }
     }
-    if (!upstream) return { ahead: 0, behind: 0, upstream: null }
+    const remoteHeadSha = upstream ? await optionalGit(projectPath, ["rev-parse", upstream]) : null
+    if (!upstream) {
+      return { ahead: 0, behind: 0, upstream: null, hasUpstream: false, published, remoteHeadSha: null }
+    }
 
     const counts = await optionalGit(projectPath, ["rev-list", "--left-right", "--count", `${upstream}...HEAD`])
     const [behindRaw, aheadRaw] = counts?.split(/\s+/) ?? []
@@ -208,6 +246,20 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
       ahead: Number.parseInt(aheadRaw ?? "0", 10) || 0,
       behind: Number.parseInt(behindRaw ?? "0", 10) || 0,
       upstream,
+      hasUpstream: true,
+      published,
+      remoteHeadSha,
+    }
+  }
+
+  async function hasStagedChanges(projectPath: string): Promise<boolean> {
+    try {
+      await runGit(projectPath, ["diff", "--cached", "--quiet"])
+      return false
+    } catch (error) {
+      const code = (error as { code?: number | string | null }).code
+      if (code === 1 || code === "1") return true
+      throw error
     }
   }
 
@@ -248,7 +300,7 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     return githubContext(remote)
   }
 
-  async function getStatusContext(project: Pick<Project, "repoPath">): Promise<StatusContext> {
+  async function getStatusContext(project: Pick<Project, "repoPath">, options: StatusOptions = {}): Promise<StatusContext> {
     const projectPath = project.repoPath
     const inside = await optionalGit(projectPath, ["rev-parse", "--is-inside-work-tree"])
     if (inside !== "true") {
@@ -267,6 +319,9 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
       optionalGit(projectPath, ["config", "--get", "remote.origin.url"]),
     ])
     const branch = branchRaw && branchRaw !== "HEAD" ? branchRaw : branchRaw
+    const refresh = options.refresh
+      ? await refreshRemote(projectPath, remoteUrl)
+      : { remoteFetchedAt: null, remoteFetchError: null }
     const defaultBranch = await getDefaultBranch(projectPath)
     const counts = await aheadBehind(projectPath, branch, defaultBranch)
     const github = parseGitHubRemote(remoteUrl)
@@ -281,7 +336,7 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
         const context = await githubContext(github)
         auth = context.auth
         client = context.client
-        pullRequest = await findOpenPullRequest(context.client, github, branch, headSha)
+        pullRequest = await findBranchPullRequest(context.client, github, branch, headSha)
       } catch (error) {
         githubError = githubErrorMessage(error)
       }
@@ -302,10 +357,18 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
         branch,
         defaultBranch,
         headSha,
+        remoteHeadSha: counts.remoteHeadSha,
         dirty: !!dirtyRaw,
         ahead: counts.ahead,
         behind: counts.behind,
         upstream: counts.upstream,
+        hasUpstream: counts.hasUpstream,
+        published: counts.published,
+        canPush: !!branch && branch !== "HEAD" && !!remoteUrl,
+        canPull: !!branch && branch !== "HEAD" && branch === defaultBranch && !!remoteUrl,
+        refreshedAt: new Date().toISOString(),
+        remoteFetchedAt: refresh.remoteFetchedAt,
+        remoteFetchError: refresh.remoteFetchError,
         remote,
         pullRequest,
         github: github ? { authenticated: auth?.authenticated ?? false, error: githubError } : null,
@@ -316,8 +379,8 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     }
   }
 
-  async function getStatus(project: Pick<Project, "repoPath">): Promise<ProjectGitStatus> {
-    return (await getStatusContext(project)).status
+  async function getStatus(project: Pick<Project, "repoPath">, options: StatusOptions = {}): Promise<ProjectGitStatus> {
+    return (await getStatusContext(project, options)).status
   }
 
   async function createBranch(project: Pick<Project, "repoPath">, name: string): Promise<ProjectGitStatus> {
@@ -332,11 +395,101 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
       ? `origin/${defaultBranch}`
       : defaultBranch
     await runGit(project.repoPath, ["checkout", "-b", branch, startPoint])
-    return getStatus(project)
+    return getStatus(project, { refresh: true })
   }
 
-  async function getPullRequest(project: Pick<Project, "repoPath">): Promise<ProjectPullRequestDetails> {
+  async function commitChanges(
+    project: Pick<Project, "repoPath">,
+    input: { message: string; branchName?: string | null },
+  ): Promise<ProjectGitStatus> {
+    const message = input.message.trim()
+    if (!message) throw new HttpError(400, "Commit message is required")
     const context = await getStatusContext(project)
+    const status = context.status
+    if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
+    if (!status.dirty) throw new HttpError(400, "No local changes to commit")
+    if (!status.branch || status.branch === "HEAD") {
+      throw new HttpError(400, "Checkout or create a branch before committing")
+    }
+
+    const requestedBranch = input.branchName?.trim() ? validateBranchName(input.branchName) : null
+    if (requestedBranch && requestedBranch !== status.branch) {
+      if (await refExists(project.repoPath, `refs/heads/${requestedBranch}`)) {
+        throw new HttpError(409, `Branch already exists: ${requestedBranch}`)
+      }
+      await runGit(project.repoPath, ["checkout", "-b", requestedBranch])
+    }
+
+    await runGit(project.repoPath, ["add", "-A"])
+    if (!(await hasStagedChanges(project.repoPath))) {
+      throw new HttpError(400, "No changes to commit after staging")
+    }
+    await runGit(project.repoPath, ["commit", "-m", message])
+    return getStatus(project, { refresh: true })
+  }
+
+  async function pushCurrentBranch(project: Pick<Project, "repoPath">): Promise<ProjectGitStatus> {
+    const context = await getStatusContext(project, { refresh: true })
+    const status = context.status
+    if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
+    if (!status.remote?.url) throw new HttpError(400, "Selected Git repo has no origin remote")
+    if (!status.branch || status.branch === "HEAD") throw new HttpError(400, "Cannot push from a detached HEAD")
+    if (status.hasUpstream) {
+      await runGit(project.repoPath, ["push"], GITHUB_TIMEOUT_MS)
+    } else {
+      await runGit(project.repoPath, ["push", "-u", "origin", `HEAD:refs/heads/${status.branch}`], GITHUB_TIMEOUT_MS)
+    }
+    return getStatus(project, { refresh: true })
+  }
+
+  async function checkoutDefaultBranch(project: Pick<Project, "repoPath">): Promise<ProjectGitStatus> {
+    const context = await getStatusContext(project, { refresh: true })
+    const status = context.status
+    if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
+    if (status.dirty) throw new HttpError(400, "Commit or discard local changes before checking out the default branch")
+    const defaultBranch = status.defaultBranch ?? "main"
+    if (status.branch === defaultBranch) return status
+    if (await refExists(project.repoPath, `refs/heads/${defaultBranch}`)) {
+      await runGit(project.repoPath, ["checkout", defaultBranch])
+    } else if (await refExists(project.repoPath, `refs/remotes/origin/${defaultBranch}`)) {
+      await runGit(project.repoPath, ["checkout", "-b", defaultBranch, `origin/${defaultBranch}`])
+    } else {
+      throw new HttpError(400, `Default branch not found locally or on origin: ${defaultBranch}`)
+    }
+    return getStatus(project, { refresh: true })
+  }
+
+  async function pullDefaultBranch(project: Pick<Project, "repoPath">): Promise<ProjectGitStatus> {
+    const context = await getStatusContext(project, { refresh: true })
+    const status = context.status
+    if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
+    if (status.dirty) throw new HttpError(400, "Commit or discard local changes before pulling")
+    const defaultBranch = status.defaultBranch ?? "main"
+    if (status.branch !== defaultBranch) throw new HttpError(400, `Checkout ${defaultBranch} before pulling latest`)
+    if (!status.remote?.url) throw new HttpError(400, "Selected Git repo has no origin remote")
+    await runGit(project.repoPath, ["pull", "--ff-only", "origin", defaultBranch], GITHUB_TIMEOUT_MS)
+    return getStatus(project, { refresh: true })
+  }
+
+  async function deleteLocalBranch(project: Pick<Project, "repoPath">, name: string): Promise<ProjectGitStatus> {
+    const branch = validateBranchName(name)
+    const context = await getStatusContext(project)
+    const status = context.status
+    if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
+    if (status.branch === branch) throw new HttpError(400, "Checkout another branch before deleting this one")
+    if (status.defaultBranch === branch) throw new HttpError(400, "Cannot delete the default branch")
+    if (!(await refExists(project.repoPath, `refs/heads/${branch}`))) {
+      throw new HttpError(404, `Local branch not found: ${branch}`)
+    }
+    await runGit(project.repoPath, ["branch", "-d", branch])
+    return getStatus(project, { refresh: true })
+  }
+
+  async function getPullRequest(
+    project: Pick<Project, "repoPath">,
+    options: StatusOptions = {},
+  ): Promise<ProjectPullRequestDetails> {
+    const context = await getStatusContext(project, options)
     const { status, github } = context
     if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
     if (!github) return emptyPullRequestDetails(status)
@@ -350,7 +503,7 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     project: Pick<Project, "repoPath">,
     input: { title?: string; body?: string; base?: string },
   ): Promise<ProjectPullRequestDetails> {
-    const context = await getStatusContext(project)
+    const context = await getStatusContext(project, { refresh: true })
     const { status, github } = context
     if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
     if (!github) throw new HttpError(400, "Selected Git remote is not a supported GitHub.com remote")
@@ -411,7 +564,18 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     }
   }
 
-  return { getStatus, createBranch, getPullRequest, createPullRequest, mergePullRequest }
+  return {
+    getStatus,
+    createBranch,
+    commitChanges,
+    pushCurrentBranch,
+    checkoutDefaultBranch,
+    pullDefaultBranch,
+    deleteLocalBranch,
+    getPullRequest,
+    createPullRequest,
+    mergePullRequest,
+  }
 }
 
 function emptyStatus(projectPath: string): ProjectGitStatus {
@@ -421,10 +585,18 @@ function emptyStatus(projectPath: string): ProjectGitStatus {
     branch: null,
     defaultBranch: null,
     headSha: null,
+    remoteHeadSha: null,
     dirty: false,
     ahead: 0,
     behind: 0,
     upstream: null,
+    hasUpstream: false,
+    published: false,
+    canPush: false,
+    canPull: false,
+    refreshedAt: new Date().toISOString(),
+    remoteFetchedAt: null,
+    remoteFetchError: null,
     remote: null,
     pullRequest: null,
     github: null,
@@ -453,29 +625,35 @@ function parseCredentialToken(output: string): string | null {
   return null
 }
 
-async function findOpenPullRequest(
+async function findBranchPullRequest(
   client: GitHubClient,
   github: GitHubRemoteInfo,
   branch: string,
   headSha: string,
 ): Promise<PullRequestSummary | null> {
-  const narrow = await client.paginate(client.rest.pulls.list, {
+  const byBranch = await client.paginate(client.rest.pulls.list, {
     owner: github.owner,
     repo: github.repo,
-    state: "open",
+    state: "all",
     head: `${github.owner}:${branch}`,
+    sort: "updated",
+    direction: "desc",
     per_page: 100,
   })
-  const direct = narrow.find((pr) => pr.head.sha === headSha || pr.head.ref === branch)
+  const open = byBranch.find((pr) => pr.state === "open" && (pr.head.sha === headSha || pr.head.ref === branch))
+  if (open) return toPullRequestSummary(open)
+  const merged = byBranch.find((pr) => pr.merged_at && (pr.head.sha === headSha || pr.head.ref === branch))
+  if (merged) return toPullRequestSummary(merged)
+  const direct = byBranch.find((pr) => pr.head.sha === headSha || pr.head.ref === branch)
   if (direct) return toPullRequestSummary(direct)
 
-  const open = await client.paginate(client.rest.pulls.list, {
+  const allOpen = await client.paginate(client.rest.pulls.list, {
     owner: github.owner,
     repo: github.repo,
     state: "open",
     per_page: 100,
   })
-  const byHead = open.find((pr) => pr.head.sha === headSha)
+  const byHead = allOpen.find((pr) => pr.head.sha === headSha)
   return byHead ? toPullRequestSummary(byHead) : null
 }
 
@@ -547,6 +725,7 @@ function toPullRequestSummary(pr: {
   html_url: string
   state: string
   draft?: boolean | null
+  merged_at?: string | null
   head: { ref: string; sha: string; user?: { login?: string | null } | null }
   base: { ref: string }
   user?: { login?: string | null } | null
@@ -557,6 +736,8 @@ function toPullRequestSummary(pr: {
     url: pr.html_url,
     state: pr.state,
     draft: !!pr.draft,
+    merged: !!pr.merged_at,
+    mergedAt: pr.merged_at ?? null,
     headRefName: pr.head.ref,
     baseRefName: pr.base.ref,
     headSha: pr.head.sha,

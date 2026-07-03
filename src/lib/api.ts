@@ -70,11 +70,28 @@ export const api = {
     const qs = new URLSearchParams({ path })
     return request<FileContent>(`/projects/${projectId}/file?${qs.toString()}`)
   },
-  getProjectGitStatus: (projectId: string) => request<ProjectGitStatus>(`/projects/${projectId}/git/status`),
+  getProjectGitStatus: (projectId: string, refresh = true) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/status${refresh ? "" : "?refresh=0"}`),
   createProjectBranch: (projectId: string, input: { name: string }) =>
     request<ProjectGitStatus>(`/projects/${projectId}/git/branch`, { method: "POST", body: JSON.stringify(input) }),
-  getProjectPullRequest: (projectId: string) =>
-    request<ProjectPullRequestDetails>(`/projects/${projectId}/github/pr`),
+  commitProjectChanges: (projectId: string, input: { message: string; branchName?: string | null }) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/commit`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  pushProjectBranch: (projectId: string) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/push`, { method: "POST" }),
+  checkoutProjectDefaultBranch: (projectId: string) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/checkout-default`, { method: "POST" }),
+  pullProjectDefaultBranch: (projectId: string) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/pull-default`, { method: "POST" }),
+  deleteProjectBranch: (projectId: string, input: { name: string }) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/delete-branch`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  getProjectPullRequest: (projectId: string, refresh = true) =>
+    request<ProjectPullRequestDetails>(`/projects/${projectId}/github/pr${refresh ? "" : "?refresh=0"}`),
   createProjectPullRequest: (projectId: string, input: { title?: string; body?: string; base?: string }) =>
     request<ProjectPullRequestDetails>(`/projects/${projectId}/github/pr`, {
       method: "POST",
