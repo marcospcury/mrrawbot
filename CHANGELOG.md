@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/marcospcury/mrrawbot/compare/v1.1.0...v1.1.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* build Intel installers on macos-15-intel ([371b704](https://github.com/marcospcury/mrrawbot/commit/371b704f761058189d1ae3266885ece55770aa48))
+* hide sidebar divider and clear macOS traffic lights when collapsed ([aadbdcc](https://github.com/marcospcury/mrrawbot/commit/aadbdcc6c9160cdfe361592cbe92972629236ce8))
+
 ## [1.1.0](https://github.com/marcospcury/mrrawbot/compare/v1.0.0...v1.1.0) (2026-07-03)
 
 
