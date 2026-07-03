@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/marcospcury/mrrawbot/compare/v1.0.0...v1.1.0) (2026-07-03)
+
+
+### Features
+
+* publish packaged installers via GitHub Releases ([27fcae0](https://github.com/marcospcury/mrrawbot/commit/27fcae0243c328cde4dd284397b5fde69fe4c101))
+
 ## 1.0.0 (2026-07-03)
 
 
