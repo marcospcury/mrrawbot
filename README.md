@@ -63,7 +63,12 @@ npm run dev      # web app at http://localhost:5173
 npm run app      # native Electron window
 ```
 
-Then open **Settings → Providers** and add your **Ollama Cloud API key** (and CLI path overrides, if the auto-detection didn't find your `claude`/`codex` binaries). Configuration is stored **encrypted in the local SQLite database** — there is no `.env` file.
+There is **no config file to edit** — first-run setup happens entirely in the app:
+
+1. Launch the app and open **Settings → Providers**.
+2. Each provider card shows whether it was detected. `claude` and `codex` are auto-detected from your `PATH`; if you keep them somewhere unusual, set their paths in the **Configuration** card.
+3. Paste your **Ollama Cloud API key** (only needed for Ollama agents).
+4. Save. Everything is stored **encrypted in the local SQLite database** and survives restarts and rebuilds.
 
 `npm run dev` runs the Express backend (`:4000`) and the Vite dev server (`:5173`) together; Vite proxies `/api` to the backend.
 
