@@ -4,7 +4,7 @@ import { runClaude } from "../providers/claude.ts"
 import { runCodex } from "../providers/codex.ts"
 import { runOllama } from "../providers/ollama.ts"
 import type { ProviderRunner } from "../providers/types.ts"
-import { resolveRolePrompt } from "../roles/index.ts"
+import { resolveRolePrompt, roleSkillDirs } from "../roles/index.ts"
 import type { Emit } from "./events.ts"
 import { PLAN_OUTPUT_CONTRACT, parsePlan, type ParsedPlan, type ParsedPlanStep } from "./plan.ts"
 
@@ -64,6 +64,8 @@ const ROLE_STEP_DIRECTIVES: Record<string, string> = {
     "You are the CODER step of this run. Implement the task below (following the plan from earlier steps, if one exists) by making the actual changes in the repository, and verify your work.",
   planner:
     "You are the PLANNER step of this run. Your ONLY deliverable is an implementation plan for the task below. Even though the task may be worded as something to implement, you must NOT implement it: do not create, modify, or delete any files. Explore the repository read-only, then output the plan as your final message — a later step will implement it.",
+  "heavy-planner":
+    "You are the HEAVY PLANNER step of this run. Your ONLY deliverable is an exhaustive, execution-ready implementation plan for the task below. Even though the task may be worded as something to implement, you must NOT implement it: do not create, modify, or delete any files. Investigate the repository read-only until you have evidence for every claim, then output the plan as your final message — a later step (possibly a smaller model) will execute it step by step, so every step must carry its own context, guards, and verification.",
   reviewer:
     "You are the REVIEWER step of this run. Your ONLY deliverable is a review of the work described below: findings with severity and recommended fixes. Do NOT fix anything yourself — do not create, modify, or delete any files.",
   "product-specialist":
@@ -115,6 +117,7 @@ function makeSingleNode(step: FlowStep, ctx: RunFlowContext, nextStep: FlowStep 
         effort: step.effort,
         fast: step.fast ?? false,
         cwd: ctx.repoPath,
+        skillDirs: roleSkillDirs(step.role),
         maxIterations: step.maxIterations,
         temperature: step.temperature,
         signal: ctx.signal,
@@ -232,6 +235,7 @@ async function runPlanFallback({
     effort: step.effort,
     fast: step.fast ?? false,
     cwd: ctx.repoPath,
+    skillDirs: roleSkillDirs(step.role),
     maxIterations: step.maxIterations,
     temperature: step.temperature,
     signal: ctx.signal,
@@ -288,6 +292,7 @@ async function runPlanSteps({
         effort: step.effort,
         fast: step.fast ?? false,
         cwd: ctx.repoPath,
+        skillDirs: roleSkillDirs(step.role),
         maxIterations: step.maxIterations,
         temperature: step.temperature,
         signal: ctx.signal,
@@ -344,6 +349,7 @@ async function runCompletionCheck({
       effort: step.effort,
       fast: step.fast ?? false,
       cwd: ctx.repoPath,
+      skillDirs: roleSkillDirs(step.role),
       maxIterations: step.maxIterations,
       temperature: step.temperature,
       signal: ctx.signal,

@@ -53,4 +53,31 @@ describe("makeSkillTools", () => {
     const { list } = tools(empty)
     expect(String(await list.invoke({}))).toBe("(no skills found)")
   })
+
+  it("serves role skill folders passed in, tagged [role], alongside project skills", async () => {
+    const roleRoot = await mkdtemp(join(tmpdir(), "skills-role-"))
+    const dir = await addSkill(roleRoot, "solid", "name: solid\ndescription: Apply SOLID", "Principles here.")
+    const [list, read] = makeSkillTools(cwd, [dir])
+    const out = String(await list.invoke({}))
+    expect(out).toContain("solid [role] — Apply SOLID")
+    expect(out).toContain("deploy [project] — Ship the app")
+    expect(String(await read.invoke({ name: "solid" }))).toContain("Principles here.")
+  })
+
+  it("lets a role skill win a name collision with a project skill", async () => {
+    const roleRoot = await mkdtemp(join(tmpdir(), "skills-role-"))
+    const dir = await addSkill(roleRoot, "deploy", "name: deploy\ndescription: Role deploy guidance")
+    const [list] = makeSkillTools(cwd, [dir])
+    const out = String(await list.invoke({}))
+    expect(out).toContain("deploy [role] — Role deploy guidance")
+    expect(out).not.toContain("deploy [project]")
+  })
+
+  it("ignores role skill dirs without a SKILL.md", async () => {
+    const missing = join(await mkdtemp(join(tmpdir(), "skills-none-")), "ghost")
+    const [list] = makeSkillTools(cwd, [missing])
+    const out = String(await list.invoke({}))
+    expect(out).not.toContain("ghost")
+    expect(out).toContain("deploy [project]")
+  })
 })

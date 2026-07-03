@@ -10,6 +10,12 @@ export interface ProviderRunInput {
   /** Codex only: run on the "Fast" service tier. Other providers ignore it. */
   fast: boolean
   cwd: string
+  /**
+   * Absolute paths of the role's bundled skill folders (each holds a SKILL.md).
+   * Ollama serves them through its list_skills/read_skill tools; Claude and
+   * Codex read them by path (the system prompt lists them), so they ignore this.
+   */
+  skillDirs?: string[]
   maxIterations: number
   temperature: number | null
   signal: AbortSignal

@@ -1,6 +1,8 @@
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { ROLE_IDS, type Provider } from "@shared/types.ts"
-import { resolveRolePrompt } from "./index.ts"
+import { ROLE_SKILLS, resolveRolePrompt, roleSkillDirs } from "./index.ts"
 import { effectiveSystemPrompt } from "../orchestrator/engine.ts"
 import type { FlowStep } from "@shared/types.ts"
 
@@ -26,10 +28,11 @@ function step(over: Partial<FlowStep>): FlowStep {
 }
 
 describe("resolveRolePrompt", () => {
-  it("exposes the five expected roles", () => {
+  it("exposes the six expected roles", () => {
     expect(ROLE_IDS).toEqual([
       "coder",
       "planner",
+      "heavy-planner",
       "reviewer",
       "product-specialist",
       "distributed-systems-architect",
@@ -75,6 +78,54 @@ describe("resolveRolePrompt", () => {
   it("returns empty for an empty or unknown role (callers fall back to custom)", () => {
     expect(resolveRolePrompt("", "claude")).toBe("")
     expect(resolveRolePrompt("not-a-role", "claude")).toBe("")
+  })
+
+  it("resolves the heavy planner with its deeper planning contract", () => {
+    const p = resolveRolePrompt("heavy-planner", "claude")
+    expect(p).toContain("<heavy_planner_role>")
+    expect(p).toContain("Blast Radius")
+    expect(p).toContain("Architecture fit")
+    expect(p).toContain("Edge cases")
+    expect(p).toContain("smaller model")
+    // Meaningfully more thorough than the standard planner.
+    expect(p.length).toBeGreaterThan(resolveRolePrompt("planner", "claude").length * 1.5)
+  })
+})
+
+describe("role skills", () => {
+  it("assigns every role a skill package, and every skill file exists with frontmatter", () => {
+    for (const role of ROLE_IDS) {
+      const skills = ROLE_SKILLS[role]
+      expect(skills?.length, role).toBeGreaterThan(0)
+      for (const dir of roleSkillDirs(role)) {
+        const file = join(dir, "SKILL.md")
+        expect(existsSync(file), file).toBe(true)
+        const text = readFileSync(file, "utf8")
+        expect(text, file).toMatch(/^name:\s*\S+/m)
+        expect(text, file).toMatch(/^description:\s*\S+/m)
+      }
+    }
+  })
+
+  it("returns no skill dirs for an empty or unknown role", () => {
+    expect(roleSkillDirs("")).toEqual([])
+    expect(roleSkillDirs("not-a-role")).toEqual([])
+  })
+
+  it("lists the role's skills in every provider prompt, adapted to the runtime", () => {
+    for (const role of ROLE_IDS) {
+      for (const provider of PROVIDERS) {
+        const p = resolveRolePrompt(role, provider)
+        expect(p, `${role}/${provider}`).toContain("<role_skills>")
+        for (const skill of ROLE_SKILLS[role]) expect(p, `${role}/${provider}`).toContain(`- ${skill} — `)
+      }
+    }
+    // Claude/Codex load skills by absolute file path; Ollama through its tools.
+    const claude = resolveRolePrompt("coder", "claude")
+    expect(claude).toContain(join("skills", "solid-design-principles", "SKILL.md"))
+    const ollama = resolveRolePrompt("coder", "ollama")
+    expect(ollama).toContain("read_skill")
+    expect(ollama).not.toContain(join("skills", "solid-design-principles", "SKILL.md"))
   })
 })
 

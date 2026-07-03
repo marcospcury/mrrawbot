@@ -65,6 +65,11 @@ export interface RoleInfo {
 export const ROLES: RoleInfo[] = [
   { id: "coder", name: "Coder", description: "Implements, fixes, refactors, and tests code." },
   { id: "planner", name: "Planner", description: "Explores the code and produces a concrete implementation plan." },
+  {
+    id: "heavy-planner",
+    name: "Heavy Planner",
+    description: "Exhaustive planning: architecture fit, blast radius, edge cases, and guarded steps a smaller model can execute.",
+  },
   { id: "reviewer", name: "Reviewer", description: "Reviews changes for correctness, security, and risk." },
   {
     id: "product-specialist",

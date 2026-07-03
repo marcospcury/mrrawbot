@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { tool, type StructuredToolInterface } from "@langchain/core/tools"
 import { z } from "zod"
 
@@ -16,6 +16,18 @@ interface Skill {
   source: string
 }
 
+/** Read one skill folder (a directory holding a SKILL.md); null when absent. */
+async function readSkillDir(dir: string, source: string): Promise<Skill | null> {
+  let text: string
+  try {
+    text = await readFile(join(dir, "SKILL.md"), "utf8")
+  } catch {
+    return null
+  }
+  const fm = parseFrontmatter(text)
+  return { name: fm.name ?? basename(dir), description: fm.description ?? "", dir, source }
+}
+
 /** Pull name/description out of SKILL.md YAML frontmatter (best-effort). */
 function parseFrontmatter(text: string): { name?: string; description?: string } {
   const m = text.match(/^---\n([\s\S]*?)\n---/)
@@ -29,17 +41,24 @@ function parseFrontmatter(text: string): { name?: string; description?: string }
 }
 
 /**
- * Discover skills in the repository only: `<repo>/.claude/skills` and
- * `<repo>/.codex/skills`, each skill a `<name>/SKILL.md` folder. The user's
- * `~/.claude` / `~/.codex` homes are deliberately NOT scanned — agents in this
- * harness run fresh and must never inherit the user's external setup.
+ * Discover the skills available to a run: the role's bundled skill folders
+ * (shipped with the app, passed in by the orchestrator) plus repository skills
+ * from `<repo>/.claude/skills` and `<repo>/.codex/skills`, each skill a
+ * `<name>/SKILL.md` folder. The user's `~/.claude` / `~/.codex` homes are
+ * deliberately NOT scanned — agents in this harness run fresh and must never
+ * inherit the user's external setup.
  */
-async function discoverSkills(cwd: string): Promise<Skill[]> {
+async function discoverSkills(cwd: string, roleSkillDirs: string[]): Promise<Skill[]> {
+  const byName = new Map<string, Skill>()
+  // Role skills first: they are harness-owned and win name collisions.
+  for (const dir of roleSkillDirs) {
+    const skill = await readSkillDir(dir, "role")
+    if (skill && !byName.has(skill.name)) byName.set(skill.name, skill)
+  }
   const roots = [
     { dir: join(cwd, ".claude", "skills"), source: "project" },
     { dir: join(cwd, ".codex", "skills"), source: "project" },
   ]
-  const byName = new Map<string, Skill>()
   for (const root of roots) {
     let entries
     try {
@@ -49,26 +68,18 @@ async function discoverSkills(cwd: string): Promise<Skill[]> {
     }
     for (const e of entries) {
       if (!e.isDirectory() && !e.isSymbolicLink()) continue
-      const dir = join(root.dir, e.name)
-      let text: string
-      try {
-        text = await readFile(join(dir, "SKILL.md"), "utf8")
-      } catch {
-        continue
-      }
-      const fm = parseFrontmatter(text)
-      const name = fm.name ?? e.name
-      if (!byName.has(name)) byName.set(name, { name, description: fm.description ?? "", dir, source: root.source })
+      const skill = await readSkillDir(join(root.dir, e.name), root.source)
+      if (skill && !byName.has(skill.name)) byName.set(skill.name, skill)
     }
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Tools that let the Ollama agent loop discover and load skills. */
-export function makeSkillTools(cwd: string): StructuredToolInterface[] {
+export function makeSkillTools(cwd: string, roleSkillDirs: string[] = []): StructuredToolInterface[] {
   const listSkillsTool = tool(
     async () => {
-      const skills = await discoverSkills(cwd)
+      const skills = await discoverSkills(cwd, roleSkillDirs)
       if (skills.length === 0) return "(no skills found)"
       return clip(skills.map((s) => `${s.name} [${s.source}] — ${s.description || "(no description)"}`).join("\n"))
     },
@@ -82,7 +93,7 @@ export function makeSkillTools(cwd: string): StructuredToolInterface[] {
 
   const readSkillTool = tool(
     async ({ name }) => {
-      const skills = await discoverSkills(cwd)
+      const skills = await discoverSkills(cwd, roleSkillDirs)
       const skill = skills.find((s) => s.name === name) ?? skills.find((s) => s.name.toLowerCase() === name.toLowerCase())
       if (!skill) {
         const available = skills.map((s) => s.name).join(", ") || "(none)"

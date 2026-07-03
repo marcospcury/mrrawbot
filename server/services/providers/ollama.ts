@@ -102,7 +102,7 @@ export async function runOllama(input: ProviderRunInput): Promise<ProviderRunOut
     throw new Error("Ollama Cloud API key is not configured. Add it in Settings → Providers.")
   }
 
-  const tools = [...makeRepoTools(input.cwd, input.signal), ...makeSkillTools(input.cwd)]
+  const tools = [...makeRepoTools(input.cwd, input.signal), ...makeSkillTools(input.cwd, input.skillDirs ?? [])]
   const toolMap = new Map<string, StructuredToolInterface>(tools.map((t) => [t.name, t]))
   const model = input.model || env.ollamaDefaultModel
   const llm = makeOllama(model, input.temperature, ollamaThink(input.effort)).bindTools(tools)
