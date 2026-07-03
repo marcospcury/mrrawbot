@@ -1,0 +1,73 @@
+# Release automation:
+# 1. release-please watches main, opens/updates a release PR from Conventional
+#    Commits, and — when that PR is merged — creates the version tag and the
+#    GitHub Release.
+# 2. The build matrix then packages the Electron app for each platform and
+#    attaches the installers to that release.
+# Both live in one workflow because releases created with the default
+# GITHUB_TOKEN do not trigger other workflows.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: node
+
+  build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest # Apple Silicon
+            args: --mac
+          - os: macos-13 # Intel
+            args: --mac
+          - os: windows-latest
+            args: --win
+          - os: ubuntu-latest
+            args: --linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      # Node 24 here decides which system Node the packaged app supports:
+      # native modules (better-sqlite3) ship prebuilt for this Node major.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Package with electron-builder
+        run: npx electron-builder ${{ matrix.args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Attach installers to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: |
+            release/*.dmg
+            release/*.AppImage
+            release/*.exe

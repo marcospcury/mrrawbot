@@ -72,13 +72,15 @@ function resolveUserEnv() {
   const shellEnv = captureLoginShellEnv()
   // Merge the captured shell env over the (minimal) GUI env so exports win.
   const env = shellEnv ? { ...process.env, ...shellEnv } : { ...process.env }
+  const sep = path.delimiter
   env.PATH = Array.from(
-    new Set([env.PATH || "", process.env.PATH || "", ...known].join(":").split(":").filter(Boolean)),
-  ).join(":")
+    new Set([env.PATH || "", process.env.PATH || "", ...known].join(sep).split(sep).filter(Boolean)),
+  ).join(sep)
   // Run the server under the same system Node that built better-sqlite3.
+  const nodeBin = process.platform === "win32" ? "node.exe" : "node"
   let node = ""
-  for (const dir of env.PATH.split(":")) {
-    if (existsSync(path.join(dir, "node"))) {
+  for (const dir of env.PATH.split(sep)) {
+    if (existsSync(path.join(dir, nodeBin))) {
       node = path.join(dir, "node")
       break
     }

@@ -54,6 +54,21 @@ Only the providers you want to use need to be set up; the app shows each provide
 
 ---
 
+## Install (no repo checkout needed)
+
+Grab a packaged build from [**Releases**](https://github.com/marcospcury/mrrawbot/releases): a `.dmg` for macOS (Apple Silicon and Intel), an `.exe` installer for Windows, and an `.AppImage` for Linux.
+
+Two things to know:
+
+- **Node.js 24 must be on your `PATH`.** The app runs its backend under your system Node (that's how it reuses your existing `claude`/`codex` logins and environment), and the bundled SQLite module is built for Node 24 — other Node majors won't load it. Running from source instead works with any Node ≥ 22.
+- **The macOS app is unsigned** (local-first hobby project, no Apple developer certificate), so Gatekeeper will refuse to open it after download. Clear the quarantine flag once:
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/Mr Rawbot.app"
+  ```
+
+---
+
 ## Quick start
 
 ```bash
@@ -160,7 +175,7 @@ electron/                   Electron shell (spawns the server, wraps the UI)
 
 ## Versioning & releases
 
-The project follows [Semantic Versioning](https://semver.org/) with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:` → minor, `fix:` → patch, `feat!:`/`BREAKING CHANGE` → major). [release-please](https://github.com/googleapis/release-please) opens a release PR that bumps the version and changelog; merging it tags a GitHub release.
+The project follows [Semantic Versioning](https://semver.org/) with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:` → minor, `fix:` → patch, `feat!:`/`BREAKING CHANGE` → major). [release-please](https://github.com/googleapis/release-please) opens a release PR that bumps the version and changelog; merging it tags a GitHub release, and CI then builds and attaches the macOS/Windows/Linux installers to it (see `.github/workflows/release.yml`).
 
 ## License
 
