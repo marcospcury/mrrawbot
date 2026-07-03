@@ -2,8 +2,8 @@
 # 1. release-please watches main, opens/updates a release PR from Conventional
 #    Commits, and — when that PR is merged — creates the version tag and the
 #    GitHub Release.
-# 2. The build matrix then packages the Electron app for each platform and
-#    attaches the installers to that release.
+# 2. The build matrix then packages the macOS app (Apple Silicon + Intel)
+#    and attaches the installers to that release. macOS only for now.
 # Both live in one workflow because releases created with the default
 # GITHUB_TOKEN do not trigger other workflows.
 name: Release
@@ -39,10 +39,6 @@ jobs:
             args: --mac
           - os: macos-13 # Intel
             args: --mac
-          - os: windows-latest
-            args: --win
-          - os: ubuntu-latest
-            args: --linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +63,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
-          files: |
-            release/*.dmg
-            release/*.AppImage
-            release/*.exe
+          files: release/*.dmg

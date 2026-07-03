@@ -56,7 +56,7 @@ Only the providers you want to use need to be set up; the app shows each provide
 
 ## Install (no repo checkout needed)
 
-Grab a packaged build from [**Releases**](https://github.com/marcospcury/mrrawbot/releases): a `.dmg` for macOS (Apple Silicon and Intel), an `.exe` installer for Windows, and an `.AppImage` for Linux.
+Grab a packaged build from [**Releases**](https://github.com/marcospcury/mrrawbot/releases): a `.dmg` for macOS, built for both Apple Silicon (`arm64`) and Intel (`x64`). macOS only for now — on other platforms, run from source.
 
 Two things to know:
 
