@@ -6,11 +6,19 @@
 #    and attaches the installers to that release. macOS only for now.
 # Both live in one workflow because releases created with the default
 # GITHUB_TOKEN do not trigger other workflows.
+# The workflow_dispatch trigger rebuilds and re-attaches the installers for an
+# existing release tag (e.g. after a runner or packaging fix).
 name: Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)build installers for"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,6 +26,7 @@ permissions:
 
 jobs:
   release-please:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -30,20 +39,22 @@ jobs:
 
   build:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: macos-latest # Apple Silicon
             args: --mac
-          - os: macos-13 # Intel
+          - os: macos-15-intel # Intel (last x64 image, available until Aug 2027)
             args: --mac
     runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ env.TAG }}
 
       # Node 24 here decides which system Node the packaged app supports:
       # native modules (better-sqlite3) ship prebuilt for this Node major.
@@ -62,5 +73,5 @@ jobs:
       - name: Attach installers to the release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          tag_name: ${{ env.TAG }}
           files: release/*.dmg
