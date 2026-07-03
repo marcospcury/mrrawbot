@@ -62,6 +62,13 @@ export const ROLE_SKILLS: Record<string, string[]> = {
     "data-consistency-patterns",
     "architecture-fit-review",
   ],
+  "ui-designer": [
+    "design-token-systems",
+    "html-css-prototyping",
+    "visual-hierarchy-and-typography",
+    "interaction-states-and-flows",
+    "design-handoff-annotations",
+  ],
 }
 
 /**

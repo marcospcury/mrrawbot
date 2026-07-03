@@ -28,7 +28,7 @@ function step(over: Partial<FlowStep>): FlowStep {
 }
 
 describe("resolveRolePrompt", () => {
-  it("exposes the six expected roles", () => {
+  it("exposes the seven expected roles", () => {
     expect(ROLE_IDS).toEqual([
       "coder",
       "planner",
@@ -36,6 +36,7 @@ describe("resolveRolePrompt", () => {
       "reviewer",
       "product-specialist",
       "distributed-systems-architect",
+      "ui-designer",
     ])
   })
 
@@ -89,6 +90,16 @@ describe("resolveRolePrompt", () => {
     expect(p).toContain("smaller model")
     // Meaningfully more thorough than the standard planner.
     expect(p.length).toBeGreaterThan(resolveRolePrompt("planner", "claude").length * 1.5)
+  })
+
+  it("resolves the UI designer with its prototype contract", () => {
+    const p = resolveRolePrompt("ui-designer", "claude")
+    expect(p).toContain("<ui_designer_role>")
+    expect(p).toContain("design/prototypes/")
+    expect(p).toContain("index.html")
+    expect(p).toContain("No JavaScript")
+    expect(p).toContain("tokens.css")
+    expect(p).toContain("HANDOFF.md")
   })
 })
 

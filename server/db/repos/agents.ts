@@ -49,7 +49,7 @@ const stmts = {
      WHERE id = :id RETURNING *`,
   ),
   remove: db.prepare<{ id: string }>(`DELETE FROM agents WHERE id = :id AND is_builtin = 0`),
-  removeBuiltins: db.prepare(`DELETE FROM agents WHERE is_builtin = 1`),
+  removeBuiltin: db.prepare<{ id: string }>(`DELETE FROM agents WHERE id = :id AND is_builtin = 1`),
 }
 
 export function listAgents(): AgentConfig[] {
@@ -101,8 +101,9 @@ export function deleteAgent(id: string): boolean {
   return stmts.remove.run({ id }).changes > 0
 }
 
-export function deleteBuiltinAgents(): void {
-  stmts.removeBuiltins.run()
+/** Seeder-only: remove one builtin agent (e.g. before refreshing it in place). */
+export function removeBuiltinAgent(id: string): void {
+  stmts.removeBuiltin.run({ id })
 }
 
 export function countAgents(): number {

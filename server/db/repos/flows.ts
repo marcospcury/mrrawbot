@@ -82,7 +82,7 @@ const stmts = {
      WHERE id = :id RETURNING *`,
   ),
   remove: db.prepare<{ id: string }>(`DELETE FROM flows WHERE id = :id`),
-  removeBuiltins: db.prepare(`DELETE FROM flows WHERE is_builtin = 1`),
+  removeBuiltin: db.prepare<{ id: string }>(`DELETE FROM flows WHERE id = :id AND is_builtin = 1`),
 }
 
 export function listFlows(): FlowConfig[] {
@@ -127,8 +127,12 @@ export function deleteFlow(id: string): boolean {
   return deleted
 }
 
-export function deleteBuiltinFlows(): void {
-  stmts.removeBuiltins.run()
+/**
+ * Seeder-only: remove one builtin flow WITHOUT tombstoning it (unlike
+ * `deleteFlow`, which records a user's builtin deletion so refreshes respect it).
+ */
+export function removeBuiltinFlow(id: string): void {
+  stmts.removeBuiltin.run({ id })
 }
 
 export function countFlows(): number {

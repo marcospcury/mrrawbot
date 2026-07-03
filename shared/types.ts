@@ -81,6 +81,12 @@ export const ROLES: RoleInfo[] = [
     name: "Distributed Systems Architect",
     description: "Designs scalable, reliable, distributed architectures.",
   },
+  {
+    id: "ui-designer",
+    name: "Product/UI Designer",
+    description:
+      "Drafts high-fidelity, multi-page HTML/CSS prototypes — the layout and token reference for implementation.",
+  },
 ]
 
 export const ROLE_IDS: string[] = ROLES.map((r) => r.id)

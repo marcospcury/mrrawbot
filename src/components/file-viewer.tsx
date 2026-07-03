@@ -3,11 +3,12 @@ import { LanguageDescription } from "@codemirror/language"
 import { languages } from "@codemirror/language-data"
 import type { Extension } from "@codemirror/state"
 import CodeMirror from "@uiw/react-codemirror"
-import { Check, Copy, FileCode2, Maximize2, X } from "lucide-react"
+import { Check, Copy, FileCode2, Globe, Maximize2, X } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { createEditorTheme } from "@/lib/codemirror-theme"
+import { isPreviewable, openPreview } from "@/lib/preview"
 import { useProjectFile } from "@/lib/queries"
 
 interface FileViewerProps {
@@ -67,6 +68,17 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
           <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
             Truncated
           </Badge>
+        )}
+        {isPreviewable(path) && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Open in prototype preview"
+            title="Open in prototype preview"
+            onClick={() => openPreview(projectId, content?.path ?? path)}
+          >
+            <Globe className="size-3" />
+          </Button>
         )}
         <Button
           variant="ghost"

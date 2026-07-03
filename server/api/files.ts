@@ -75,6 +75,46 @@ filesRouter.get(
   }),
 )
 
+// Static preview of repository files, used by the in-app prototype browser to
+// render HTML/CSS prototypes (e.g. the UI designer role's `design/prototypes`
+// output). Serves any repo file with its real MIME type so multi-page
+// prototypes with relative links and stylesheets work as real pages.
+filesRouter.get(
+  "/projects/:id/preview/*",
+  asyncHandler(async (req, res) => {
+    const root = projectRoot(req.params.id)
+    const rel = req.params[0] || "."
+    let filePath = resolveRepoPath(root, rel)
+
+    let stat = await lstat(filePath).catch(filesystemError)
+    if (stat.isSymbolicLink()) throw new HttpError(400, "Symlinks are not supported")
+    if (stat.isDirectory()) {
+      // Redirect to the trailing-slash form first so the page's relative links
+      // resolve against the directory, then serve its index.html.
+      const q = req.originalUrl.indexOf("?")
+      const pathname = q === -1 ? req.originalUrl : req.originalUrl.slice(0, q)
+      if (!pathname.endsWith("/")) {
+        res.redirect(302, `${pathname}/${q === -1 ? "" : req.originalUrl.slice(q)}`)
+        return
+      }
+      filePath = path.join(filePath, "index.html")
+      stat = await lstat(filePath).catch(filesystemError)
+      if (stat.isSymbolicLink()) throw new HttpError(400, "Symlinks are not supported")
+    }
+    if (!stat.isFile()) throw new HttpError(400, "Path is not a file")
+
+    // Previewed files are agent- or repo-authored content served on the app's
+    // own origin, and the prototype contract is pure HTML+CSS — block script
+    // execution outright so a previewed page can never call the mrrawbot API.
+    res.setHeader("Content-Security-Policy", "script-src 'none'")
+    await new Promise<void>((resolve, reject) => {
+      // Once headers are out there is no response left to repair, so stream
+      // errors (e.g. the viewer closed mid-transfer) are dropped, not rethrown.
+      res.sendFile(filePath, (err) => (err && !res.headersSent ? reject(err) : resolve()))
+    }).catch(filesystemError)
+  }),
+)
+
 filesRouter.get(
   "/projects/:id/file",
   asyncHandler(async (req, res) => {

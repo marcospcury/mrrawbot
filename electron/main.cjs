@@ -6,7 +6,7 @@
 // keeps the architecture identical to the web app. The renderer is just a window
 // pointed at the local server (or the Vite dev server when MRRAWBOT_ELECTRON_URL is set).
 
-const { app, BrowserWindow, Menu, nativeImage, shell } = require("electron")
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, shell } = require("electron")
 const { spawn, execSync } = require("node:child_process")
 const { existsSync } = require("node:fs")
 const os = require("node:os")
@@ -23,6 +23,7 @@ app.setName("Mr Rawbot")
 
 let serverProc = null
 let win = null
+let previewWin = null
 let quitting = false
 
 // Apps launched from the Dock/Finder inherit a minimal environment — macOS does
@@ -185,6 +186,9 @@ async function createWindow() {
   win.once("ready-to-show", () => win && win.show())
   win.on("closed", () => {
     win = null
+    // The prototype preview belongs to the main window's session: closing it
+    // too keeps "close the app window" meaning "quit" (window-all-closed).
+    if (previewWin && !previewWin.isDestroyed()) previewWin.close()
   })
 
   await waitForReady()
@@ -192,6 +196,60 @@ async function createWindow() {
   // Safety net in case ready-to-show never fires.
   setTimeout(() => win && !win.isVisible() && win.show(), 2000)
 }
+
+// In-app prototype browser: a plain browser window pointed at the server's
+// preview endpoint, so HTML/CSS prototypes (e.g. the UI designer role's
+// `design/prototypes` output) render as real, multi-page navigable pages.
+// One window is reused across opens; the renderer asks for it over IPC with a
+// server-relative path, which we resolve against the app's own origin — no
+// arbitrary external URLs.
+function openPreviewWindow(url) {
+  if (previewWin && !previewWin.isDestroyed()) {
+    previewWin.loadURL(url).catch(() => {})
+    if (previewWin.isMinimized()) previewWin.restore()
+    previewWin.focus()
+    return
+  }
+  previewWin = new BrowserWindow({
+    width: 1200,
+    height: 850,
+    minWidth: 480,
+    minHeight: 360,
+    backgroundColor: "#ffffff",
+    title: "Prototype Preview",
+    webPreferences: {
+      // Prototypes are agent-written content: keep them fully sandboxed with
+      // no preload and no Node access.
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  previewWin.webContents.setWindowOpenHandler(({ url: external }) => {
+    shell.openExternal(external)
+    return { action: "deny" }
+  })
+  previewWin.on("closed", () => {
+    previewWin = null
+  })
+  previewWin.loadURL(url).catch(() => {})
+}
+
+ipcMain.handle("mrrawbot:open-preview", (_event, relPath) => {
+  if (typeof relPath !== "string") return
+  const base = (win && win.webContents.getURL()) || TARGET_URL
+  let url
+  try {
+    url = new URL(relPath, base)
+  } catch {
+    return
+  }
+  // Same-origin only: WHATWG URL parsing turns prefixes like "//" or "/\" into
+  // authority changes, so comparing the PARSED origin is the only reliable
+  // guard against being pointed at an external site.
+  if (url.origin !== new URL(base).origin) return
+  openPreviewWindow(url.toString())
+})
 
 buildMenu()
 
@@ -205,7 +263,9 @@ app.whenReady().then(async () => {
   if (!DEV_URL) startBackend()
   await createWindow()
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    // Check the main window specifically — an open preview window must not
+    // stop the app UI from coming back.
+    if (!win) createWindow()
   })
 })
 
