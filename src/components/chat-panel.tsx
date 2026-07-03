@@ -115,10 +115,10 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="mrr-header flex min-h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+      <header className="mrr-header mrr-thread-header flex min-h-12 min-w-0 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
         <EditableTitle title={thread.title} onSave={(t) => onRenameThread(thread.id, t)} />
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1">
           <GitHeaderControl project={project} thread={thread} />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -218,7 +218,7 @@ function EditableTitle({ title, onSave }: { title: string; onSave: (title: strin
             setEditing(false)
           }
         }}
-        className="min-w-0 max-w-[40ch] rounded-md border bg-background px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-ring"
+        className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-ring"
       />
     )
   }
@@ -226,7 +226,7 @@ function EditableTitle({ title, onSave }: { title: string; onSave: (title: strin
   return (
     <button
       onClick={() => setEditing(true)}
-      className="truncate rounded-md px-2 py-1 text-sm font-medium transition-colors hover:bg-accent"
+      className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
       title="Click to rename"
     >
       {title}

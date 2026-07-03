@@ -234,8 +234,8 @@ export function FlowsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="space-y-1 border-b px-6 pt-6 pb-4">
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[min(calc(100vw-2rem),86rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+        <DialogHeader className="shrink-0 space-y-1 border-b px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Workflow className="size-4" /> Flows
           </DialogTitle>
@@ -244,9 +244,9 @@ export function FlowsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex h-[34rem] max-h-[78vh]">
+        <div className="flex h-[min(48rem,calc(100vh-10rem))] min-h-0">
           {/* flow list */}
-          <div className="flex w-60 shrink-0 flex-col border-r">
+          <div className="flex w-72 shrink-0 flex-col border-r">
             <div className="p-2">
               <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={newFlow}>
                 <Plus className="size-4" /> New flow
