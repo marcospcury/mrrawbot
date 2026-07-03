@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRunConfig, type RunConfig } from "@/hooks/use-run-config"
 import { cn } from "@/lib/utils"
 
@@ -175,30 +176,44 @@ function ModeToggle({
 }) {
   return (
     <div className="inline-flex shrink-0 rounded-full border bg-background p-0.5 shadow-xs">
-      <button
-        type="button"
-        aria-pressed={!flowActive}
-        onClick={onSingle}
-        className={cn(
-          "inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium transition-colors",
-          !flowActive ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <Zap className="size-3" />
-        Single
-      </button>
-      <button
-        type="button"
-        aria-pressed={flowActive}
-        onClick={onFlow}
-        className={cn(
-          "inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium transition-colors",
-          flowActive ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <Workflow className="size-3" />
-        Flow
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Single agent mode"
+            aria-pressed={!flowActive}
+            onClick={onSingle}
+            className={cn(
+              "inline-flex size-6 items-center justify-center rounded-full transition-colors",
+              !flowActive
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Zap className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Single agent</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Flow mode"
+            aria-pressed={flowActive}
+            onClick={onFlow}
+            className={cn(
+              "inline-flex size-6 items-center justify-center rounded-full transition-colors",
+              flowActive
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Workflow className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Flow</TooltipContent>
+      </Tooltip>
     </div>
   )
 }

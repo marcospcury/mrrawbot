@@ -174,10 +174,6 @@
     --mrr-titlebar-h: 8px;
   }
 
-  .mrr-thread-header {
-    container-type: inline-size;
-  }
-
   .mrr-header {
     /* Reserve space for the OS window controls up top, plus matching bottom
        padding so the header content sits vertically centered in the strip. */
@@ -206,15 +202,6 @@
   /* Interactive controls inside the drag strip must stay clickable. */
   .is-electron .mrr-header :where(button, a, input, textarea, label, [role="button"], [role="combobox"]) {
     -webkit-app-region: no-drag;
-  }
-  @container (max-width: 46rem) {
-    .mrr-git-branch-label,
-    .mrr-git-action {
-      display: none;
-    }
-    .mrr-git-control {
-      padding-inline: 0.625rem;
-    }
   }
 
   /* Subtle entrance used by streaming chat surfaces. */
