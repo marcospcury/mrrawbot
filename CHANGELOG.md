@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/marcospcury/mrrawbot/compare/v1.1.1...v1.2.0) (2026-07-03)
+
+
+### Features
+
+* add Heavy Planner role and per-role skill libraries for all providers ([0a1bb5a](https://github.com/marcospcury/mrrawbot/commit/0a1bb5ae1cc8aff32539eab7c471df60e3a29285))
+
 ## [1.1.1](https://github.com/marcospcury/mrrawbot/compare/v1.1.0...v1.1.1) (2026-07-03)
 
 
