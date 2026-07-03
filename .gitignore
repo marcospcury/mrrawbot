@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+release/
+*.tsbuildinfo
+
+# Local environment & data
+.env
+data/
+*.db
+*.db-shm
+*.db-wal
+secret.key
+
+# OS / editor
+.DS_Store
+
+# Logs
+npm-debug.log*

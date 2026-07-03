@@ -1,0 +1,131 @@
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { LanguageDescription } from "@codemirror/language"
+import { languages } from "@codemirror/language-data"
+import type { Extension } from "@codemirror/state"
+import CodeMirror from "@uiw/react-codemirror"
+import { Check, Copy, FileCode2, Maximize2, X } from "lucide-react"
+import { useTheme } from "@/components/theme-provider"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { createEditorTheme } from "@/lib/codemirror-theme"
+import { useProjectFile } from "@/lib/queries"
+
+interface FileViewerProps {
+  projectId: string
+  path: string | null
+  onClose?: () => void
+  onExpand?: () => void
+}
+
+export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerProps) {
+  const file = useProjectFile(projectId, path)
+  const { resolvedTheme } = useTheme()
+  const [languageExtensions, setLanguageExtensions] = useState<Extension[]>([])
+  const [copied, setCopied] = useState(false)
+  const editorTheme = useMemo(() => createEditorTheme(resolvedTheme === "dark"), [resolvedTheme])
+
+  useEffect(() => {
+    setLanguageExtensions([])
+    if (!path || file.data?.binary) return
+
+    const language = LanguageDescription.matchFilename(languages, path)
+    if (!language) return
+
+    let cancelled = false
+    void language
+      .load()
+      .then((support) => {
+        if (!cancelled) setLanguageExtensions([support])
+      })
+      .catch(() => {
+        if (!cancelled) setLanguageExtensions([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [path, file.data?.binary])
+
+  if (!path) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+        Select a file to preview it.
+      </div>
+    )
+  }
+
+  const content = file.data
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+        <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={content?.path ?? path}>
+          {content?.path ?? path}
+        </span>
+        {content?.truncated && (
+          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+            Truncated
+          </Badge>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Copy file path"
+          title="Copy file path"
+          onClick={() => void copyPath(content?.path ?? path)}
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        </Button>
+        {onExpand && (
+          <Button variant="ghost" size="icon-xs" aria-label="Expand file viewer" title="Expand" onClick={onExpand}>
+            <Maximize2 className="size-3" />
+          </Button>
+        )}
+        {onClose && (
+          <Button variant="ghost" size="icon-xs" aria-label="Close file viewer" title="Close" onClick={onClose}>
+            <X className="size-3" />
+          </Button>
+        )}
+      </div>
+
+      {file.isLoading ? (
+        <ViewerStatus>Loading file…</ViewerStatus>
+      ) : file.isError ? (
+        <ViewerStatus>Unable to load file</ViewerStatus>
+      ) : content?.binary ? (
+        <ViewerStatus>Binary file not shown</ViewerStatus>
+      ) : (
+        <CodeMirror
+          key={`${resolvedTheme}:${content?.path ?? path}`}
+          value={content?.content ?? ""}
+          height="100%"
+          className="h-full min-h-0 flex-1 overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"
+          basicSetup={{ lineNumbers: true }}
+          readOnly
+          editable={false}
+          theme={editorTheme}
+          extensions={languageExtensions}
+        />
+      )}
+    </div>
+  )
+
+  async function copyPath(filePath: string) {
+    try {
+      await navigator.clipboard.writeText(filePath)
+    } catch {
+      return
+    }
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1200)
+  }
+}
+
+function ViewerStatus({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  )
+}

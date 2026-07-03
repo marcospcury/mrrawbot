@@ -1,0 +1,343 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", "Menlo",
+    "Consolas", monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.21 0.006 285.885);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.001 286.375);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.705 0.015 286.067);
+}
+
+.dark {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.18 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.18 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.552 0.016 285.938);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.16 0.006 285.885);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.92 0.004 286.32);
+  --sidebar-primary-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.552 0.016 285.938);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    overscroll-behavior: none;
+  }
+}
+
+@layer utilities {
+  /* Refined, minimal scrollbars for the premium feel. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--foreground) 16%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--foreground) 28%, transparent);
+  }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--primary) 28%, transparent);
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  /* ---- Native desktop (Electron) frameless title bar integration ---- */
+  /* Reserve space at the top of the app's header strips for the OS window
+     controls, and let those strips double as the draggable title bar. In the
+     browser build these vars are 0 and nothing is draggable. */
+  :root {
+    --mrr-titlebar-h: 0px;
+  }
+  .is-electron.is-mac {
+    --mrr-titlebar-h: 34px;
+  }
+  .is-electron.is-win {
+    --mrr-titlebar-h: 8px;
+  }
+
+  .mrr-header {
+    /* Reserve space for the OS window controls up top, plus matching bottom
+       padding so the header content sits vertically centered in the strip. */
+    padding-top: var(--mrr-titlebar-h);
+    padding-bottom: 0.5rem;
+  }
+  /* The thread (chat) header sits to the right of the traffic lights, so it
+     doesn't need the full title-bar reserve — keep it a slim, compact toolbar. */
+  .is-electron header.mrr-header {
+    padding-top: 0.5rem;
+  }
+  .is-electron .mrr-header {
+    -webkit-app-region: drag;
+  }
+  /* Interactive controls inside the drag strip must stay clickable. */
+  .is-electron .mrr-header :where(button, a, input, textarea, label, [role="button"], [role="combobox"]) {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Subtle entrance used by streaming chat surfaces. */
+  @keyframes mrr-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-mrr-in {
+    animation: mrr-fade-in 0.18s ease-out both;
+  }
+}
+
+/* ---- CopilotKit theming: map its CSS variables onto our zinc tokens ---- */
+.copilotKitWindow,
+.copilotKitChat {
+  --copilot-kit-background-color: var(--background);
+  --copilot-kit-secondary-color: var(--card);
+  --copilot-kit-secondary-contrast-color: var(--foreground);
+  --copilot-kit-primary-color: var(--primary);
+  --copilot-kit-contrast-color: var(--primary-foreground);
+  --copilot-kit-separator-color: var(--border);
+  --copilot-kit-muted-color: var(--muted-foreground);
+  font-family: var(--font-sans);
+}
+
+/* Hide CopilotKit dev inspector + "Powered by" watermark for a clean local app. */
+cpk-web-inspector,
+.copilotKitMessagesFooter,
+.poweredBy {
+  display: none !important;
+}
+
+/* Comfortable reading width + breathing room for the chat surface. */
+.mrr-chat .copilotKitMessages,
+.mrr-chat .copilotKitInputContainer {
+  max-width: 56rem;
+  margin-inline: auto;
+  width: 100%;
+}
+.mrr-chat .copilotKitMessages {
+  padding-inline: 1rem;
+}
+/* CopilotKit has no typography variables (its --copilot-kit-* set is colors and
+   shadows only), and it hardcodes mismatched body sizes. Set one base size on
+   the message and make body-level text inherit it, while keeping inline code a
+   touch smaller so it does not visually overpower surrounding prose. Headings
+   keep their em scale, which now scales off this same base. */
+.mrr-chat .copilotKitMessages .copilotKitMessage {
+  font-size: 0.875rem;
+}
+.mrr-chat .copilotKitParagraph,
+.mrr-chat li.copilotKitMarkdownElement {
+  font-size: inherit;
+}
+.mrr-chat .copilotKitInlineCode {
+  font-size: 0.8125rem;
+}
+.mrr-chat .copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
+  padding-top: 0.75rem;
+}
+.mrr-chat .copilotKitMessage.copilotKitAssistantMessage:has(.copilotKitMessageControls.currentMessage) {
+  margin-bottom: 3rem;
+}
+.mrr-chat .copilotKitInputContainer {
+  padding-inline: 1rem;
+  padding-bottom: 0.75rem;
+}
+.mrr-chat .mrr-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow: 0 10px 30px color-mix(in oklch, var(--foreground) 8%, transparent);
+  padding: 0.625rem;
+}
+.mrr-chat .mrr-composer-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.mrr-chat .mrr-composer-main textarea {
+  min-height: 2.25rem;
+  max-height: 11rem;
+  flex: 1;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  outline: none;
+}
+.mrr-chat .mrr-composer-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.375rem;
+  overflow-x: auto;
+  padding-bottom: 0.125rem;
+}
+.mrr-chat .mrr-composer-send {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+/* What makes a reply feel packed isn't the paragraphs (already line-height 1.75)
+   — it's tables and lists. CopilotKit ships no table styling at all, so cells
+   render with the browser's zero padding and rows jam together; list items get
+   no gap between them either. Give cells modest padding with faint row dividers,
+   and a small gap between list items. Paragraph rhythm is left untouched. */
+.mrr-chat .copilotKitMarkdown table {
+  border-collapse: collapse;
+  margin-bottom: 1.25em;
+}
+.mrr-chat .copilotKitMarkdown th,
+.mrr-chat .copilotKitMarkdown td {
+  padding: 0.45rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+  border-bottom: 1px solid var(--border);
+}
+.mrr-chat .copilotKitMarkdown th:first-child,
+.mrr-chat .copilotKitMarkdown td:first-child {
+  padding-left: 0;
+}
+.mrr-chat .copilotKitMarkdown th:last-child,
+.mrr-chat .copilotKitMarkdown td:last-child {
+  padding-right: 0;
+}
+.mrr-chat li.copilotKitMarkdownElement {
+  line-height: 1.6;
+}
+.mrr-chat li.copilotKitMarkdownElement:not(:last-child) {
+  margin-bottom: 0.375rem;
+}
+
+/* While dragging the sidebar resize handle, let the width track the cursor
+   instead of easing through the sidebar's open/close transition. */
+[data-sidebar-resizing] [data-slot="sidebar-container"],
+[data-sidebar-resizing] [data-slot="sidebar-gap"] {
+  transition: none !important;
+}
