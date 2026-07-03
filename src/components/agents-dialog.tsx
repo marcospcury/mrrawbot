@@ -232,8 +232,8 @@ export function AgentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="space-y-1 border-b border-border px-6 pt-6 pb-4">
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[min(calc(100vw-2rem),72rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+        <DialogHeader className="shrink-0 space-y-1 border-b border-border px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Bot className="size-4" /> Agents
           </DialogTitle>
@@ -242,8 +242,8 @@ export function AgentsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex h-[30rem]">
-          <div className="flex w-56 shrink-0 flex-col border-r border-border">
+        <div className="flex h-[min(42rem,calc(100vh-10rem))] min-h-0">
+          <div className="flex w-64 shrink-0 flex-col border-r border-border">
             <div className="p-2">
               <Button variant="outline" size="sm" className="w-full justify-start" onClick={newAgent}>
                 <Plus /> New agent

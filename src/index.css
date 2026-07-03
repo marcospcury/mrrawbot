@@ -180,6 +180,9 @@
     padding-top: var(--mrr-titlebar-h);
     padding-bottom: 0.5rem;
   }
+  .is-electron.is-mac [data-slot="sidebar-header"].mrr-header {
+    padding-top: calc(var(--mrr-titlebar-h) + 0.875rem);
+  }
   /* The thread (chat) header sits to the right of the traffic lights, so it
      doesn't need the full title-bar reserve — keep it a slim, compact toolbar. */
   .is-electron header.mrr-header {

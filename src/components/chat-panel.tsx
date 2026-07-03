@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCoAgentStateRender } from "@copilotkit/react-core"
 import {
@@ -50,6 +50,11 @@ export function ChatPanel({
   onManageFlows,
 }: ChatPanelProps) {
   const queryClient = useQueryClient()
+  const headerRef = useRef<HTMLElement | null>(null)
+  const titleRef = useRef<HTMLElement | null>(null)
+  const headerActionsRef = useRef<HTMLDivElement | null>(null)
+  const fullActionsWidth = useRef(0)
+  const [compactGit, setCompactGit] = useState(false)
 
   // Runs whose state streamed live this session render via useCoAgentStateRender;
   // skip them when rehydrating persisted runs so they don't show twice.
@@ -113,13 +118,46 @@ export function ChatPanel({
       .filter((run) => !liveRunIds.current.has(run.id))
       .map((run) => <AgentRunTimeline key={run.id} state={run.state} status="complete" />)
 
+  useLayoutEffect(() => {
+    const header = headerRef.current
+    const title = titleRef.current
+    const actions = headerActionsRef.current
+    if (!header || !title || !actions) return
+
+    const updateGitFit = () => {
+      const headerStyle = getComputedStyle(header)
+      const contentWidth =
+        header.clientWidth - parseFloat(headerStyle.paddingLeft) - parseFloat(headerStyle.paddingRight)
+      const gap = parseFloat(headerStyle.columnGap || headerStyle.gap || "0")
+      const actionsWidth = actions.scrollWidth
+
+      if (!compactGit) fullActionsWidth.current = actionsWidth
+
+      const expandedActionsWidth = fullActionsWidth.current || actionsWidth
+      const titlePreferredWidth = Math.min(Math.max(title.scrollWidth, 140), 420)
+      const titleWidthWithExpandedGit = contentWidth - expandedActionsWidth - gap
+      const shouldCompact = titleWidthWithExpandedGit < titlePreferredWidth
+      const shouldExpand = titleWidthWithExpandedGit > titlePreferredWidth + 48
+
+      setCompactGit((current) => (current ? !shouldExpand : shouldCompact))
+    }
+
+    updateGitFit()
+
+    const observer = new ResizeObserver(updateGitFit)
+    observer.observe(header)
+    observer.observe(title)
+    observer.observe(actions)
+    return () => observer.disconnect()
+  }, [compactGit, thread.title])
+
   return (
     <div className="flex h-full flex-col">
-      <header className="mrr-header flex min-h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
-        <EditableTitle title={thread.title} onSave={(t) => onRenameThread(thread.id, t)} />
+      <header ref={headerRef} className="mrr-header flex min-h-12 min-w-0 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+        <EditableTitle title={thread.title} measureRef={titleRef} onSave={(t) => onRenameThread(thread.id, t)} />
 
-        <div className="ml-auto flex items-center gap-1">
-          <GitHeaderControl project={project} thread={thread} />
+        <div ref={headerActionsRef} className="ml-auto flex min-w-0 shrink-0 items-center gap-1">
+          <GitHeaderControl project={project} thread={thread} compact={compactGit} />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -196,7 +234,15 @@ function AgentRunTimelineWithChangeRefresh({
   return <AgentRunTimeline state={state} status={status} />
 }
 
-function EditableTitle({ title, onSave }: { title: string; onSave: (title: string) => Promise<void> }) {
+function EditableTitle({
+  title,
+  measureRef,
+  onSave,
+}: {
+  title: string
+  measureRef: MutableRefObject<HTMLElement | null>
+  onSave: (title: string) => Promise<void>
+}) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(title)
 
@@ -207,6 +253,9 @@ function EditableTitle({ title, onSave }: { title: string; onSave: (title: strin
   if (editing) {
     return (
       <input
+        ref={(node) => {
+          measureRef.current = node
+        }}
         autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -218,15 +267,18 @@ function EditableTitle({ title, onSave }: { title: string; onSave: (title: strin
             setEditing(false)
           }
         }}
-        className="min-w-0 max-w-[40ch] rounded-md border bg-background px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-ring"
+        className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-sm font-medium outline-none focus:ring-2 focus:ring-ring"
       />
     )
   }
 
   return (
     <button
+      ref={(node) => {
+        measureRef.current = node
+      }}
       onClick={() => setEditing(true)}
-      className="truncate rounded-md px-2 py-1 text-sm font-medium transition-colors hover:bg-accent"
+      className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
       title="Click to rename"
     >
       {title}

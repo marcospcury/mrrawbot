@@ -162,24 +162,24 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[min(calc(100vw-2rem),70rem)] flex-col overflow-hidden sm:max-w-none">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Settings className="size-4" /> Settings
           </DialogTitle>
           <DialogDescription>Providers, appearance, and app information.</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="providers" className="w-full">
-          <TabsList className="w-full">
+        <Tabs defaultValue="providers" className="min-h-0 w-full flex-1">
+          <TabsList className="w-full shrink-0">
             <TabsTrigger value="providers">Providers</TabsTrigger>
             <TabsTrigger value="appearance">Appearance</TabsTrigger>
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="providers">
-            <ScrollArea className="max-h-[26rem]">
-              <div className="space-y-3 pr-2">
+          <TabsContent value="providers" className="min-h-0">
+            <ScrollArea className="h-[min(42rem,calc(100vh-14rem))]">
+              <div className="space-y-3 pr-3">
                 {providerConfigQuery.data && <ProviderConfigForm config={providerConfigQuery.data} />}
                 {providers.map((p) => (
                   <Card key={p.provider} className="gap-3 py-4">
@@ -260,33 +260,35 @@ export function SettingsDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="about">
-            <div className="py-2">
-              {info ? (
-                <div>
-                  <InfoRow label="App">
-                    {info.name} <span className="text-muted-foreground">v{info.version}</span>
-                  </InfoRow>
-                  <InfoRow label="Repo roots">
-                    {info.repoRoots.length > 0 ? (
-                      <div className="space-y-0.5">
-                        {info.repoRoots.map((root) => (
-                          <div key={root}>{root}</div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">none</span>
-                    )}
-                  </InfoRow>
-                  <InfoRow label="Database">{info.dbPath}</InfoRow>
-                  <InfoRow label="Copilot runtime">{info.copilotRuntimeUrl}</InfoRow>
-                </div>
-              ) : (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  {infoQuery.isLoading ? "Loading…" : "App info unavailable."}
-                </p>
-              )}
-            </div>
+          <TabsContent value="about" className="min-h-0">
+            <ScrollArea className="h-[min(42rem,calc(100vh-14rem))]">
+              <div className="py-2 pr-3">
+                {info ? (
+                  <div>
+                    <InfoRow label="App">
+                      {info.name} <span className="text-muted-foreground">v{info.version}</span>
+                    </InfoRow>
+                    <InfoRow label="Repo roots">
+                      {info.repoRoots.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {info.repoRoots.map((root) => (
+                            <div key={root}>{root}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">none</span>
+                      )}
+                    </InfoRow>
+                    <InfoRow label="Database">{info.dbPath}</InfoRow>
+                    <InfoRow label="Copilot runtime">{info.copilotRuntimeUrl}</InfoRow>
+                  </div>
+                ) : (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    {infoQuery.isLoading ? "Loading…" : "App info unavailable."}
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
           </TabsContent>
         </Tabs>
       </DialogContent>

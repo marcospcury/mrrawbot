@@ -38,15 +38,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useProjectGitMutations, useProjectGitStatus, useProjectPullRequest } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 interface GitHeaderControlProps {
   project: Project
   thread: Thread
+  compact?: boolean
 }
 
-export function GitHeaderControl({ project, thread }: GitHeaderControlProps) {
+export function GitHeaderControl({ project, thread, compact = false }: GitHeaderControlProps) {
   const [open, setOpen] = useState(false)
   const statusQuery = useProjectGitStatus(project.id)
   const status = statusQuery.data
@@ -62,19 +64,33 @@ export function GitHeaderControl({ project, thread }: GitHeaderControlProps) {
         : "Open PR"
       : "Git"
 
+  const branchLabel = status.branch ?? "detached"
+
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 max-w-[18rem] gap-2 rounded-full px-3"
-        onClick={() => setOpen(true)}
-      >
-        <GitBranch className="size-3.5" />
-        <span className="truncate font-mono text-xs">{status.branch ?? "detached"}</span>
-        {status.dirty && <CircleDot className="size-3 fill-amber-500 text-amber-500" aria-label="Dirty worktree" />}
-        <span className="hidden text-xs text-muted-foreground sm:inline">{action}</span>
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("mrr-git-control h-8 min-w-0 gap-2 rounded-full", compact ? "px-2.5" : "px-3")}
+            onClick={() => setOpen(true)}
+          >
+            <GitBranch className="size-3.5 shrink-0" />
+            {!compact && <span className="whitespace-nowrap font-mono text-xs">{branchLabel}</span>}
+            {status.dirty && (
+              <CircleDot className="size-3 shrink-0 fill-amber-500 text-amber-500" aria-label="Dirty worktree" />
+            )}
+            {!compact && (
+              <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">{action}</span>
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {branchLabel}
+          {status.dirty ? " — dirty worktree" : ""}
+        </TooltipContent>
+      </Tooltip>
       <GitProjectDialog
         open={open}
         onOpenChange={setOpen}

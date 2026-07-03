@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRunConfig, type RunConfig } from "@/hooks/use-run-config"
 import { cn } from "@/lib/utils"
 
@@ -77,6 +78,13 @@ export function Composer({
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
+  function selectFlowMode() {
+    if (run.flow) return
+    const firstFlow = flows[0]
+    if (firstFlow) run.selectFlow(firstFlow.id)
+    else onManageFlows()
+  }
+
   return (
     <div className="copilotKitInputContainer">
       <div className="mrr-composer">
@@ -100,16 +108,12 @@ export function Composer({
         </div>
 
         <div className="mrr-composer-controls">
-          <ModePill run={run} flows={flows} onManageFlows={onManageFlows} />
+          <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
           {run.flow ? (
-            <div className="flex min-w-0 items-center gap-1">
-              {run.flowProviders.slice(0, 5).map((p, i) => (
-                <div key={p} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-[11px] text-muted-foreground">→</span>}
-                  <ProviderPill provider={p} />
-                </div>
-              ))}
-            </div>
+            <>
+              <FlowPicker run={run} flows={flows} onManageFlows={onManageFlows} />
+              <FlowProviderSummary providers={run.flowProviders} />
+            </>
           ) : (
             <>
               <ModelCombobox
@@ -161,7 +165,60 @@ export function Composer({
   )
 }
 
-function ModePill({
+function ModeToggle({
+  flowActive,
+  onSingle,
+  onFlow,
+}: {
+  flowActive: boolean
+  onSingle: () => void
+  onFlow: () => void
+}) {
+  return (
+    <div className="inline-flex shrink-0 rounded-full border bg-background p-0.5 shadow-xs">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Single agent mode"
+            aria-pressed={!flowActive}
+            onClick={onSingle}
+            className={cn(
+              "inline-flex size-6 items-center justify-center rounded-full transition-colors",
+              !flowActive
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Zap className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Single agent</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Flow mode"
+            aria-pressed={flowActive}
+            onClick={onFlow}
+            className={cn(
+              "inline-flex size-6 items-center justify-center rounded-full transition-colors",
+              flowActive
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Workflow className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Flow</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
+function FlowPicker({
   run,
   flows,
   onManageFlows,
@@ -173,22 +230,18 @@ function ModePill({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="xs" className="rounded-full text-[11px]">
-          {run.flow ? <Workflow className="size-3" /> : <Zap className="size-3 text-amber-400" />}
-          <span className="max-w-[12ch] truncate">{run.flow ? run.flow.name : "Single"}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="min-w-[13rem] max-w-[24rem] justify-start rounded-full text-[11px]"
+        >
+          <Workflow className="size-3" />
+          <span className="min-w-0 flex-1 truncate text-left">{run.flow?.name ?? "Select flow"}</span>
           <ChevronDown className="size-3 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuItem onClick={run.selectSingle} className="gap-2">
-          <Zap className="size-4 text-amber-400" />
-          <div className="grid">
-            <span>Single agent</span>
-            <span className="text-xs text-muted-foreground">Pick a model and run</span>
-          </div>
-          {!run.flow && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
-        </DropdownMenuItem>
-        {flows.length > 0 && <DropdownMenuSeparator />}
+      <DropdownMenuContent align="start" className="w-72">
         {flows.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Flows</DropdownMenuLabel>}
         {flows.map((flow) => (
           <DropdownMenuItem key={flow.id} onClick={() => run.selectFlow(flow.id)} className="gap-2">
@@ -204,6 +257,19 @@ function ModePill({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function FlowProviderSummary({ providers }: { providers: ReturnType<typeof useRunConfig>["flowProviders"] }) {
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      {providers.slice(0, 5).map((p, i) => (
+        <div key={p} className="flex items-center gap-1">
+          {i > 0 && <span className="text-[11px] text-muted-foreground">→</span>}
+          <ProviderPill provider={p} />
+        </div>
+      ))}
+    </div>
   )
 }
 
