@@ -55,7 +55,12 @@ export const ROLE_SKILLS: Record<string, string[]> = {
     "risk-and-rollback",
   ],
   reviewer: ["code-review-calibration", "security-review-checklist", "test-adequacy-review", "edge-case-catalog"],
-  "product-specialist": ["user-story-quality", "acceptance-criteria-writing", "scope-and-slicing"],
+  "product-specialist": [
+    "user-story-quality",
+    "acceptance-criteria-writing",
+    "scope-and-slicing",
+    "build-prompt-authoring",
+  ],
   "distributed-systems-architect": [
     "distributed-systems-fundamentals",
     "resilience-patterns",

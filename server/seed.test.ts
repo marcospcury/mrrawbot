@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ROLE_IDS } from "@shared/types.ts"
+import { BUILD_ROLES, ROLE_IDS } from "@shared/types.ts"
 
 describe("seedDefaults", () => {
   let tempDir = ""
@@ -36,18 +36,23 @@ describe("seedDefaults", () => {
     setSetting("seedHash", "stale")
   }
 
-  it("seeds one builtin starter agent per role, with valid roles in every flow step", async () => {
+  it("seeds one builtin starter agent per build role, with valid build roles in every flow step", async () => {
     const { seedDefaults, listAgents, listFlows } = await setup()
     seedDefaults()
 
+    const buildRoleIds = BUILD_ROLES.map((r) => r.id)
     const builtins = listAgents().filter((a) => a.isBuiltin)
-    expect(builtins.map((a) => a.role).sort()).toEqual([...ROLE_IDS].sort())
+    expect(builtins.map((a) => a.role).sort()).toEqual([...buildRoleIds].sort())
 
     const flowList = listFlows()
     expect(flowList.length).toBeGreaterThan(0)
     for (const flow of flowList) {
-      for (const s of flow.steps) expect(ROLE_IDS, `${flow.id}/${s.id}`).toContain(s.role)
+      // Product Design roles never appear in builtin flows; ROLE_IDS still
+      // covers them so legacy user-edited flows keep resolving prompts.
+      for (const s of flow.steps) expect(buildRoleIds, `${flow.id}/${s.id}`).toContain(s.role)
     }
+    expect(ROLE_IDS).toContain("product-specialist")
+    expect(ROLE_IDS).toContain("ui-designer")
   })
 
   it("is idempotent while the definitions are unchanged", async () => {

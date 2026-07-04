@@ -34,6 +34,12 @@ export interface RunFlowContext {
    * never inside the repository.
    */
   designWorkspace: string
+  /**
+   * Pre-rendered `# Attached product-design artifacts` prompt section for the
+   * thread's attached artifacts (specs, prototypes, build prompts). Empty or
+   * absent when nothing is attached.
+   */
+  artifactsContext?: string
   emit: Emit
   signal: AbortSignal
   runners?: Partial<Record<Provider, ProviderRunner>>
@@ -74,12 +80,8 @@ const ROLE_STEP_DIRECTIVES: Record<string, string> = {
     "You are the HEAVY PLANNER step of this run. Your ONLY deliverable is an exhaustive, execution-ready implementation plan for the task below. Even though the task may be worded as something to implement, you must NOT implement it: do not create, modify, or delete any files. Investigate the repository read-only until you have evidence for every claim, then output the plan as your final message — a later step (possibly a smaller model) will execute it step by step, so every step must carry its own context, guards, and verification.",
   reviewer:
     "You are the REVIEWER step of this run. Your ONLY deliverable is a review of the work described below: findings with severity and recommended fixes. Do NOT fix anything yourself — do not create, modify, or delete any files.",
-  "product-specialist":
-    "You are the PRODUCT SPECIALIST step of this run. Your ONLY deliverable is the product spec — user stories, scope, and acceptance criteria — for the task below. Even though the task may be worded as something to build, you must NOT build it: do not create, modify, or delete any files.",
   "distributed-systems-architect":
     "You are the ARCHITECT step of this run. Your ONLY deliverable is the architecture/design for the task below. Even though the task may be worded as something to implement, you must NOT implement it: do not create, modify, or delete any files.",
-  "ui-designer":
-    "You are the DESIGNER step of this run. Your ONLY deliverable is a high-fidelity HTML/CSS prototype created inside your design workspace (the absolute path in the context below). Even though the task may be worded as something to implement, you must NOT implement it: the repository is read-only reference material — never create, modify, or delete anything inside it.",
 }
 
 function buildPrompt(step: FlowStep, state: Orch, ctx: RunFlowContext): string {
@@ -96,6 +98,7 @@ function buildPrompt(step: FlowStep, state: Orch, ctx: RunFlowContext): string {
   if (state.transcript.trim()) {
     sections.push(`# Work already done by earlier agents in this flow\n${state.transcript.trim()}`)
   }
+  if (ctx.artifactsContext?.trim()) sections.push(ctx.artifactsContext.trim())
   sections.push(repositoryContext(ctx, step.role))
   return sections.join("\n\n")
 }
@@ -401,6 +404,7 @@ function buildPlanStepPrompt({
     `# Your task — step ${planStep.id}: ${planStep.title}\n${planStep.prompt}${
       planStep.verify ? `\n\nVerify this step with: ${planStep.verify}` : ""
     }\n\nEnd your response with a final line exactly like: DONE: one line of what changed.`,
+    ...(ctx.artifactsContext?.trim() ? [ctx.artifactsContext.trim()] : []),
     repositoryContext(ctx, role),
   ].join("\n\n")
 }
@@ -514,6 +518,8 @@ export interface RunFlowInput {
   repoName: string
   /** App-internal design-prototype folder for the project (see RunFlowContext). */
   designWorkspace: string
+  /** Attached-artifacts prompt section (see RunFlowContext). */
+  artifactsContext?: string
   task: string
   history: string
   emit: Emit
@@ -528,6 +534,7 @@ export async function runFlow(input: RunFlowInput): Promise<string> {
     repoPath: input.repoPath,
     repoName: input.repoName,
     designWorkspace: input.designWorkspace,
+    artifactsContext: input.artifactsContext,
     emit: input.emit,
     signal: input.signal,
     runners: input.runners,

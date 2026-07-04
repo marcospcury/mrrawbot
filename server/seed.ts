@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import type { Effort, FlowStep, NewAgentConfig, NewFlowConfig, Provider } from "@shared/types.ts"
-import { ROLES } from "@shared/types.ts"
+import { BUILD_ROLES } from "@shared/types.ts"
 import { countAgents, createAgent, listAgents, removeBuiltinAgent } from "./db/repos/agents.ts"
 import { createFlow, listDeletedBuiltinFlowIds, listFlows, removeBuiltinFlow } from "./db/repos/flows.ts"
 import { getSetting, setSetting } from "./db/repos/settings.ts"
@@ -10,9 +10,11 @@ import { env } from "./env.ts"
  * Builtin agents and flows, refreshed on boot whenever their definitions
  * change (content-hashed — no version constant to bump):
  *
- * - Agents are DERIVED from `ROLES`: every role ships one starter agent, so a
- *   newly added role appears for both fresh installs and upgrades without
- *   touching this file. `AGENT_TUNING` only adjusts per-role defaults.
+ * - Agents are DERIVED from `BUILD_ROLES`: every build-surface role ships one
+ *   starter agent, so a newly added role appears for both fresh installs and
+ *   upgrades without touching this file. `AGENT_TUNING` only adjusts per-role
+ *   defaults. Product Design roles (product-specialist, ui-designer) live in
+ *   Product Design sessions, not in flows or agent templates.
  * - Flows stay hand-curated (they are compositions, not derivable), but any
  *   edit here reaches existing installs on their next boot.
  * - A refresh never destroys user intent: custom agents/flows are untouched,
@@ -50,12 +52,11 @@ const AGENT_TUNING: Partial<Record<string, AgentTuning>> = {
   "heavy-planner": { maxIterations: 24 },
   coder: { provider: "ollama", maxIterations: 14, temperature: 0.1 },
   reviewer: { provider: "codex", maxIterations: 10, instructions: REVIEW_LOOP_INSTRUCTION },
-  "ui-designer": { maxIterations: 18 },
 }
 
-/** One reusable starter agent per role (insert into flows as starting points). */
+/** One reusable starter agent per build role (insert into flows as starting points). */
 function builtinAgents(): Array<NewAgentConfig & { id: string }> {
-  return ROLES.map((role) => {
+  return BUILD_ROLES.map((role) => {
     const tuning = AGENT_TUNING[role.id] ?? {}
     const provider = tuning.provider ?? "claude"
     return {
@@ -189,49 +190,6 @@ function builtinFlows(): Array<NewFlowConfig & { id: string }> {
       steps: [
         step({ id: "s_oplan", name: "Planner", provider: "ollama", model: M.ollama, role: "planner", effort: "high" }),
         step({ id: "s_cbuild", name: "Coder", provider: "codex", model: M.codex, role: "coder", effort: "medium" }),
-      ],
-    },
-    {
-      id: "flow_design_build_review",
-      name: "Design → Build → Review",
-      description:
-        "A Product/UI Designer drafts a high-fidelity HTML/CSS prototype (browse it in the prototype preview), Claude implements it in the real stack, and Codex reviews — looping back until approved.",
-      steps: [
-        step({ id: "s_design", name: "UI Designer", provider: "claude", model: M.claude, role: "ui-designer", effort: "high", maxIterations: 18 }),
-        step({ id: "s_impl", name: "Coder", provider: "claude", model: M.claude, role: "coder", effort: "high" }),
-        step({
-          id: "s_dreview",
-          name: "Reviewer",
-          provider: "codex",
-          model: M.codex,
-          role: "reviewer",
-          effort: "high",
-          maxIterations: 10,
-          instructions: REVIEW_LOOP_INSTRUCTION,
-          loop: { to: "s_impl", approveWhen: "APPROVE", maxLoops: 2 },
-        }),
-      ],
-    },
-    {
-      id: "flow_spec_design_build_review",
-      name: "Spec → Design → Build → Review",
-      description:
-        "The full pipeline: a Product Specialist writes the spec, a Distributed Systems Architect designs the approach, Ollama builds it, and Codex reviews — looping back to the build until approved.",
-      steps: [
-        step({ id: "s_spec", name: "Product Specialist", provider: "claude", model: M.claude, role: "product-specialist", effort: "high", maxIterations: 16 }),
-        step({ id: "s_design", name: "Architect", provider: "claude", model: M.claude, role: "distributed-systems-architect", effort: "high", maxIterations: 16 }),
-        step({ id: "s_build", name: "Coder", provider: "ollama", model: M.ollama, role: "coder", effort: "high" }),
-        step({
-          id: "s_review",
-          name: "Reviewer",
-          provider: "codex",
-          model: M.codex,
-          role: "reviewer",
-          effort: "high",
-          maxIterations: 10,
-          instructions: REVIEW_LOOP_INSTRUCTION,
-          loop: { to: "s_build", approveWhen: "APPROVE", maxLoops: 2 },
-        }),
       ],
     },
   ]

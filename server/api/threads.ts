@@ -29,6 +29,7 @@ const sessionSchema = z.object({
 
 const createSchema = z.object({
   title: z.string().optional(),
+  kind: z.enum(["build", "product-design"]).optional(),
   flowId: z.string().nullable().optional(),
   session: sessionSchema.nullable().optional(),
 })
@@ -57,11 +58,15 @@ threadsRouter.post(
     const input = parseBody(createSchema, req.body)
     // New threads default to single-agent "quick run" mode (no flow). The user
     // picks provider/model/effort/writes in the chat header and just kicks off.
-    const flowId = input.flowId !== undefined ? input.flowId : null
+    // Product Design sessions never run flows; they keep a session config for
+    // the provider/model/effort both personas share.
+    const kind = input.kind ?? "build"
+    const flowId = kind === "product-design" ? null : input.flowId !== undefined ? input.flowId : null
     const session = input.session !== undefined ? (input.session as SessionConfig) : defaultSession()
     const thread = createThread({
       projectId: project.id,
       title: input.title,
+      kind,
       flowId,
       session: flowId ? null : session,
     })

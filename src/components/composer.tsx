@@ -5,12 +5,29 @@ import {
   Brain,
   Check,
   ChevronDown,
+  FileText,
+  Paperclip,
+  PenTool,
   Settings2,
+  Terminal,
+  Users,
   Workflow,
+  X,
   Zap,
 } from "lucide-react"
 import { useChatContext } from "@copilotkit/react-ui"
-import { ROLES, effortLabel, effortsFor, roleName, type Effort, type FlowConfig, type SessionConfig } from "@shared/types"
+import {
+  BUILD_ROLES,
+  effortLabel,
+  effortsFor,
+  roleName,
+  type ArtifactInfo,
+  type Effort,
+  type FlowConfig,
+  type ProductDesignPersona,
+  type SessionConfig,
+  type Thread,
+} from "@shared/types"
 import { ModelCombobox } from "@/components/model-combobox"
 import { ProviderPill } from "@/components/provider-pill"
 import { Button } from "@/components/ui/button"
@@ -25,29 +42,41 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRunConfig, type RunConfig } from "@/hooks/use-run-config"
+import { useProjectArtifacts, useSetThreadArtifacts, useThreadArtifacts } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 export function Composer({
+  thread,
   flows,
   flowId,
   session,
   onChangeRun,
   onManageFlows,
+  persona,
+  onPersonaChange,
+  prefill,
+  onPrefillConsumed,
   inProgress,
   onSend,
   onStop,
   chatReady = true,
 }: {
+  thread: Thread
   flows: FlowConfig[]
   flowId: string | null
   session: SessionConfig | null
   onChangeRun: (next: RunConfig) => void
   onManageFlows: () => void
+  persona: ProductDesignPersona
+  onPersonaChange: (persona: ProductDesignPersona) => void
+  prefill: string | null
+  onPrefillConsumed: () => void
   inProgress: boolean
   onSend: (message: string) => void | Promise<unknown>
   onStop?: () => void
   chatReady?: boolean
 }) {
+  const isProductDesign = thread.kind === "product-design"
   const [text, setText] = useState("")
   const [isComposing, setIsComposing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -70,6 +99,14 @@ export function Composer({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`
   }, [text])
 
+  // "Start build thread" prefill from a prompt artifact — fill, don't send.
+  useEffect(() => {
+    if (prefill == null) return
+    setText(prefill)
+    onPrefillConsumed()
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }, [prefill, onPrefillConsumed])
+
   function send() {
     const message = text.trim()
     if (!message || inProgress) return
@@ -88,13 +125,14 @@ export function Composer({
   return (
     <div className="copilotKitInputContainer">
       <div className="mrr-composer">
+        {!isProductDesign && <AttachedArtifactChips thread={thread} />}
         <div className="mrr-composer-main">
           <textarea
             ref={textareaRef}
             data-testid="copilot-chat-textarea"
             rows={1}
             value={text}
-            placeholder="Describe a coding task…"
+            placeholder={isProductDesign ? "Describe the product or feature…" : "Describe a coding task…"}
             onChange={(e) => setText(e.target.value)}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
@@ -108,8 +146,10 @@ export function Composer({
         </div>
 
         <div className="mrr-composer-controls">
-          <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
-          {run.flow ? (
+          {!isProductDesign && (
+            <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
+          )}
+          {!isProductDesign && run.flow ? (
             <>
               <FlowPicker run={run} flows={flows} onManageFlows={onManageFlows} />
               <FlowProviderSummary providers={run.flowProviders} />
@@ -142,9 +182,14 @@ export function Composer({
                   <span className="mrr-pill-label">Fast</span>
                 </Button>
               )}
-              <RolePill role={run.active.role} onRole={run.setRole} />
+              {isProductDesign ? (
+                <PersonaPill persona={persona} onPersona={onPersonaChange} />
+              ) : (
+                <RolePill role={run.active.role} onRole={run.setRole} />
+              )}
             </>
           )}
+          {!isProductDesign && <AttachArtifactsPill thread={thread} />}
           <div className="copilotKitInputControls mrr-composer-send">
             <button
               type="button"
@@ -304,6 +349,138 @@ function EffortPill({
   )
 }
 
+const PERSONA_OPTIONS: Array<{ id: ProductDesignPersona; name: string; description: string }> = [
+  { id: "auto", name: "Auto", description: "Route each message to the right persona automatically." },
+  { id: "specialist", name: "Specialist", description: "Product Specialist answers: specs, scope, build prompts." },
+  { id: "designer", name: "Designer", description: "Product/UI Designer answers: HTML/CSS prototypes." },
+]
+
+function PersonaPill({
+  persona,
+  onPersona,
+}: {
+  persona: ProductDesignPersona
+  onPersona: (persona: ProductDesignPersona) => void
+}) {
+  const label = PERSONA_OPTIONS.find((p) => p.id === persona)?.name ?? "Auto"
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="xs" className="rounded-full text-[11px]" title="Persona">
+          <Users className="size-3" />
+          <span className="mrr-pill-label">{label}</span>
+          <ChevronDown className="size-3 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-1">
+        {PERSONA_OPTIONS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+            onClick={() => onPersona(p.id)}
+          >
+            <Check className={cn("mt-0.5 size-3.5", persona === p.id ? "opacity-100" : "opacity-0")} />
+            <span className="grid gap-0.5">
+              <span>{p.name}</span>
+              <span className="text-xs text-muted-foreground">{p.description}</span>
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+const ARTIFACT_ICONS = { spec: FileText, prototype: PenTool, prompt: Terminal } as const
+
+function AttachArtifactsPill({ thread }: { thread: Thread }) {
+  const artifacts = useProjectArtifacts(thread.projectId)
+  const attached = useThreadArtifacts(thread.id)
+  const setAttached = useSetThreadArtifacts(thread.id)
+  const attachedIds = new Set((attached.data ?? []).map((a) => a.id))
+  const all = artifacts.data ?? []
+  if (all.length === 0) return null
+
+  const toggle = (artifact: ArtifactInfo) => {
+    const next = attachedIds.has(artifact.id)
+      ? [...attachedIds].filter((id) => id !== artifact.id)
+      : [...attachedIds, artifact.id]
+    setAttached.mutate(next)
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className={cn("rounded-full text-[11px]", attachedIds.size > 0 && "border-primary/50 text-primary")}
+          title="Attach product-design artifacts"
+        >
+          <Paperclip className="size-3" />
+          {attachedIds.size > 0 && <span className="mrr-pill-label">{attachedIds.size}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-1">
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">
+          Attached artifacts are injected into this thread's runs.
+        </p>
+        {all.map((artifact) => {
+          const Icon = ARTIFACT_ICONS[artifact.kind]
+          return (
+            <button
+              key={artifact.id}
+              type="button"
+              className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+              onClick={() => toggle(artifact)}
+            >
+              <Check className={cn("mt-0.5 size-3.5", attachedIds.has(artifact.id) ? "opacity-100" : "opacity-0")} />
+              <Icon className="mt-0.5 size-3.5 text-muted-foreground" />
+              <span className="grid min-w-0 gap-0.5">
+                <span className="truncate">{artifact.title}</span>
+                <span className="text-xs capitalize text-muted-foreground">{artifact.kind}</span>
+              </span>
+            </button>
+          )
+        })}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function AttachedArtifactChips({ thread }: { thread: Thread }) {
+  const attached = useThreadArtifacts(thread.id)
+  const setAttached = useSetThreadArtifacts(thread.id)
+  const list = attached.data ?? []
+  if (list.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+      {list.map((artifact) => {
+        const Icon = ARTIFACT_ICONS[artifact.kind]
+        return (
+          <span
+            key={artifact.id}
+            className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
+          >
+            <Icon className="size-3 shrink-0" />
+            <span className="truncate">{artifact.title}</span>
+            <button
+              type="button"
+              aria-label={`Detach ${artifact.title}`}
+              className="shrink-0 rounded-full hover:text-foreground"
+              onClick={() => setAttached.mutate(list.filter((a) => a.id !== artifact.id).map((a) => a.id))}
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function RolePill({ role, onRole }: { role: string; onRole: (role: string) => void }) {
   return (
     <Popover>
@@ -315,7 +492,7 @@ function RolePill({ role, onRole }: { role: string; onRole: (role: string) => vo
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-1">
-        {ROLES.map((r) => (
+        {BUILD_ROLES.map((r) => (
           <button
             key={r.id}
             type="button"

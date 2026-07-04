@@ -1,4 +1,4 @@
-import { DEFAULT_ROLE_ID, type SessionConfig, type Thread } from "@shared/types.ts"
+import { DEFAULT_ROLE_ID, type SessionConfig, type Thread, type ThreadKind } from "@shared/types.ts"
 import { db, newId, now } from "../db.ts"
 
 interface ThreadRow {
@@ -6,6 +6,7 @@ interface ThreadRow {
   project_id: string
   title: string
   archived: 0 | 1
+  kind: ThreadKind
   flow_id: string | null
   session: string | null
   auto_title_generated_at: string | null
@@ -30,6 +31,7 @@ function hydrate(r: ThreadRow): Thread {
     projectId: r.project_id,
     title: r.title,
     archived: r.archived === 1,
+    kind: r.kind,
     flowId: r.flow_id,
     session: parseSession(r.session),
     autoTitleGeneratedAt: r.auto_title_generated_at,
@@ -55,10 +57,10 @@ const stmts = {
   ),
   insert: db.prepare<Record<string, unknown>, ThreadRow>(
     `INSERT INTO threads (
-       id, project_id, title, archived, flow_id, session, auto_title_generated_at, title_manually_edited, created_at, updated_at
+       id, project_id, title, archived, kind, flow_id, session, auto_title_generated_at, title_manually_edited, created_at, updated_at
      )
      VALUES (
-       :id, :project_id, :title, 0, :flow_id, :session, NULL, :title_manually_edited, :created_at, :updated_at
+       :id, :project_id, :title, 0, :kind, :flow_id, :session, NULL, :title_manually_edited, :created_at, :updated_at
      )
      RETURNING *`,
   ),
@@ -103,6 +105,7 @@ export function getThread(id: string): Thread | undefined {
 export function createThread(input: {
   projectId: string
   title?: string
+  kind?: ThreadKind
   flowId?: string | null
   session?: SessionConfig | null
   id?: string
@@ -113,6 +116,7 @@ export function createThread(input: {
       id: input.id ?? newId("thr"),
       project_id: input.projectId,
       title: input.title?.trim() || "New thread",
+      kind: input.kind ?? "build",
       flow_id: input.flowId ?? null,
       session: input.session ? JSON.stringify(input.session) : null,
       title_manually_edited: input.title?.trim() ? 1 : 0,

@@ -82,7 +82,10 @@ describe("role step directives", () => {
     expect(prompts[0]).toContain("# Your task\nImplement dark mode")
   })
 
-  it("gives designer steps the app-internal design workspace and a read-only repo", async () => {
+  // Legacy support: ui-designer no longer ships in builtin flows (it lives in
+  // Product Design sessions), but user-edited flows carrying the role keep the
+  // workspace special-case so they stay functional.
+  it("gives legacy designer steps the app-internal design workspace and a read-only repo", async () => {
     const inputs: { prompt: string; workspaceDir?: string }[] = []
     const runners: Partial<Record<Provider, ProviderRunner>> = {
       claude: async (input) => {
@@ -105,7 +108,6 @@ describe("role step directives", () => {
 
     expect(inputs).toHaveLength(1)
     expect(inputs[0].workspaceDir).toBe("/designs/p1")
-    expect(inputs[0].prompt).toContain("You are the DESIGNER step")
     expect(inputs[0].prompt).toContain("Your design workspace is /designs/p1")
     expect(inputs[0].prompt).toContain("strictly read-only")
     // The generic full-write repository context must not leak into designer steps.

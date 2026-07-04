@@ -95,7 +95,7 @@ describe("resolveRolePrompt", () => {
   it("resolves the UI designer with its prototype contract", () => {
     const p = resolveRolePrompt("ui-designer", "claude")
     expect(p).toContain("<ui_designer_role>")
-    expect(p).toContain("design workspace")
+    expect(p).toContain("artifact workspace")
     expect(p).toContain("index.html")
     expect(p).toContain("No JavaScript")
     expect(p).toContain("tokens.css")

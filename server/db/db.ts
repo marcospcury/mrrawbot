@@ -133,6 +133,36 @@ const migrations: string[] = [
   ) STRICT;
   CREATE INDEX idx_designs_project ON designs(project_id, updated_at DESC);
   `,
+  // ---- v8: Product Design sessions — thread kind, generalized artifacts (specs,
+  // prototypes, prompts) superseding designs, and build-thread artifact attachments ----
+  `
+  ALTER TABLE threads ADD COLUMN kind TEXT NOT NULL DEFAULT 'build' CHECK (kind IN ('build','product-design'));
+
+  CREATE TABLE artifacts (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    thread_id  TEXT,
+    run_id     TEXT,
+    kind       TEXT NOT NULL CHECK (kind IN ('spec','prototype','prompt')),
+    slug       TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(project_id, kind, slug)
+  ) STRICT;
+  CREATE INDEX idx_artifacts_project ON artifacts(project_id, updated_at DESC);
+
+  INSERT INTO artifacts (id, project_id, thread_id, run_id, kind, slug, title, created_at, updated_at)
+    SELECT id, project_id, thread_id, run_id, 'prototype', slug, title, created_at, updated_at FROM designs;
+  DROP TABLE designs;
+
+  CREATE TABLE thread_artifacts (
+    thread_id   TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+    artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (thread_id, artifact_id)
+  ) STRICT;
+  `,
 ]
 
 export function migrate(database: DB = db): void {
