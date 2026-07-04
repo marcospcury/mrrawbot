@@ -8,6 +8,18 @@ A **local-first** multi-agent coding assistant. Orchestrate **Claude Code**, **C
 
 ---
 
+## Screenshots
+
+![mrrawbot main thread view](docs/screenshots/01-main-thread.png)
+
+![mrrawbot workspace changes panel](docs/screenshots/02-workspace-changes.png)
+
+![mrrawbot flow builder](docs/screenshots/03-flows-dialog.png)
+
+![mrrawbot provider settings](docs/screenshots/04-settings-providers.png)
+
+---
+
 ## ⚠️ Full access, no permission gating
 
 This is a personal power tool, so there is **no permission system by design**. Every agent — Claude, Codex, and Ollama — always has full access to read, modify, create, and run anything in the selected repository (Claude runs with bypassed permissions, Codex with the sandbox disabled, and the Ollama agent gets write and bash tools). Only point it at repositories you're comfortable letting an agent loose on.
