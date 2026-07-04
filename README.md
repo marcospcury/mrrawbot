@@ -1,87 +1,120 @@
-# mrrawbot
+# Mr Rawbot
 
 [![Tests](https://github.com/marcospcury/mrrawbot/actions/workflows/tests.yml/badge.svg)](https://github.com/marcospcury/mrrawbot/actions/workflows/tests.yml)
 
-A **local-first** multi-agent coding assistant. Orchestrate **Claude Code**, **Codex**, and **Ollama Cloud** agents over the git repositories on your machine, with a premium chat UI and a flexible LangGraph orchestration engine.
+**A local desktop cockpit for AI coding agents.**
 
-> Runs entirely on your computer. There is no cloud backend, no auth, and no telemetry. The only network traffic is your agents talking to their own providers.
+Mr Rawbot brings Claude Code, Codex, and Ollama Cloud into one native app for working across the repositories on your machine. Start with a single-agent run, switch into multi-agent flows when the task needs planning or review, and keep the full conversation, run timeline, file browser, diffs, and provider setup in one place.
+
+It is deliberately local-first: no hosted backend, no accounts, no telemetry, and no `.env` file. Your repositories stay on your computer; provider calls go only to the tools you configure.
 
 ---
 
 ## Screenshots
 
-![mrrawbot main thread view](docs/screenshots/01-main-thread.png)
-
-![mrrawbot workspace changes panel](docs/screenshots/02-workspace-changes.png)
-
-![mrrawbot flow builder](docs/screenshots/03-flows-dialog.png)
-
-![mrrawbot provider settings](docs/screenshots/04-settings-providers.png)
-
----
-
-## ⚠️ Full access, no permission gating
-
-This is a personal power tool, so there is **no permission system by design**. Every agent — Claude, Codex, and Ollama — always has full access to read, modify, create, and run anything in the selected repository (Claude runs with bypassed permissions, Codex with the sandbox disabled, and the Ollama agent gets write and bash tools). Only point it at repositories you're comfortable letting an agent loose on.
-
----
-
-## What it does
-
-- **Desktop app** — runs as a native Electron window (or in the browser for dev).
-- **Repo selector** — scans your home directory (depth-limited, heavy/virtual folders skipped) for git repositories, **or paste any folder path** to add a repo from anywhere.
-- **Project & thread manager** — a left sidebar with a repository switcher and per-project conversation threads you can **rename**, **archive**, and **delete**.
-- **Rich chat view** — CopilotKit chat with a live **agent-run timeline** showing each step, its provider/model/effort, streaming output, tool activity, cost, and duration.
-- **Three providers**
-  - **Claude Code** — via the Anthropic Agent SDK driving your **local `claude` CLI** (uses your existing subscription login; no API key).
-  - **Codex** — via the **`codex app-server`** (uses your existing `codex login`).
-  - **Ollama Cloud** — a full **LangGraph ReAct agent** with repository tools and local bash, via your Ollama Cloud API key.
-- **Fully flexible orchestration** — a flow is an ordered pipeline of **self-contained steps**, and *each step independently chooses its provider, model, reasoning effort, and instructions*. Mix freely — an Ollama planner, a Claude reviewer, whatever you want — with an optional **reviewer loop-back** until approved. Reusable **agent templates** can be inserted into flows as starting points. Build it all from the UI; no code changes.
-- **Single-agent quick runs are first-class** — a thread runs as one agent (provider + model + effort) by default. Flows are optional, not required.
-
-### Reasoning effort (per step)
-
-Every step has an **effort** control, mapped to each provider's native mechanism:
-
-- **Claude** → `--effort` (`low | medium | high | xhigh | max`)
-- **Codex** → `model_reasoning_effort` (`low | medium | high | xhigh`); **Fast** is a separate service-tier toggle when available.
-- **Ollama** → `think` on/off
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/01-main-thread.png" alt="Mr Rawbot main thread view" width="100%" />
+      <br />
+      <sub><strong>Thread workspace</strong> — chat, live run timeline, provider/model controls, and Git actions.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/02-workspace-changes.png" alt="Mr Rawbot workspace changes panel" width="100%" />
+      <br />
+      <sub><strong>Changes panel</strong> — per-run file changes and readable diffs beside the conversation.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/03-flows-dialog.png" alt="Mr Rawbot flow builder" width="100%" />
+      <br />
+      <sub><strong>Flow builder</strong> — compose Claude, Ollama, and Codex into repeatable agent pipelines.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/04-settings-providers.png" alt="Mr Rawbot provider settings" width="100%" />
+      <br />
+      <sub><strong>Provider settings</strong> — local CLI detection and encrypted provider configuration.</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
-## Stack
+## What you get
 
-Vite + React 19 + TypeScript · Tailwind v4 + shadcn/ui · CopilotKit (AG-UI custom agent) · LangGraph JS · Express · SQLite (better-sqlite3, raw SQL) · Vitest.
-
----
-
-## Prerequisites
-
-- **Node ≥ 22**.
-- **Claude Code CLI** logged in (`claude login`) — for Claude agents.
-- **Codex CLI** logged in (`codex login`) — for Codex agents.
-- **Ollama Cloud API key** — for Ollama agents (get one at https://ollama.com → Settings → API keys).
-
-Only the providers you want to use need to be set up; the app shows each provider's status in **Settings → Providers**.
+- **One app for your local repos** — add tracked repositories automatically, or paste any folder path to work anywhere on disk.
+- **Single-agent runs by default** — pick a provider, model, reasoning effort, and role; send the task; watch it work.
+- **Multi-agent flows when useful** — chain planning, building, and review steps with provider-specific models and instructions.
+- **Live execution visibility** — see each step, provider, model, duration, token usage, cost, logs, and final status as the run progresses.
+- **Workspace side panel** — browse files, inspect artifacts, and review persisted changes without leaving the thread.
+- **Local provider setup** — configure Claude Code, Codex, and Ollama Cloud from the UI; settings are encrypted in SQLite.
+- **No permission toggles** — every agent always has full repository access by design, so the app behaves like a power tool instead of a hosted assistant.
 
 ---
 
-## Install (no repo checkout needed)
+## The safety model
 
-Grab a packaged build from [**Releases**](https://github.com/marcospcury/mrrawbot/releases): a `.dmg` for macOS, built for both Apple Silicon (`arm64`) and Intel (`x64`). macOS only for now — on other platforms, run from source.
+Mr Rawbot is a personal, local power tool. It intentionally has **no permission system**.
 
-Two things to know:
+Every agent and every model can read, write, create, and execute inside the selected repository. Claude runs with bypassed permissions, Codex runs with sandboxing disabled, and Ollama gets repository write tools plus local bash.
 
-- **Node.js 24 must be on your `PATH`.** The app runs its backend under your system Node (that's how it reuses your existing `claude`/`codex` logins and environment), and the bundled SQLite module is built for Node 24 — other Node majors won't load it. Running from source instead works with any Node ≥ 22.
-- **The macOS app is unsigned** (local-first hobby project, no Apple developer certificate), so Gatekeeper will refuse to open it after download. Clear the quarantine flag once:
-
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/Mr Rawbot.app"
-  ```
+Only point Mr Rawbot at repositories you are comfortable letting an agent modify.
 
 ---
 
-## Quick start
+## How it works
+
+1. **Add a repository** from the sidebar.
+2. **Create a thread** for the task or product/design session.
+3. **Choose the run mode**:
+   - **Single agent** for fast, direct work.
+   - **Flow** for planned or reviewed work.
+4. **Send the task** and follow progress in the timeline.
+5. **Review outputs** in chat, file diffs, or generated artifacts.
+
+Built-in flows give you useful defaults immediately:
+
+| Flow | Best for |
+| --- | --- |
+| Claude Code | A single Claude run from start to finish. |
+| Codex | A single Codex run with medium reasoning effort. |
+| Ollama Cloud | A single Ollama Cloud coding agent with repository tools. |
+| Plan → Build | Claude plans; Ollama executes the plan step by step with completion checks. |
+| Heavy Plan → Build | Claude writes a more exhaustive plan before Ollama executes. |
+| Plan → Execute → Review | Claude plans; Ollama implements; Codex reviews and loops back until `APPROVE`. |
+| Ollama Plan → Codex Build | Ollama plans; Codex implements. |
+
+---
+
+## Providers
+
+| Provider | How Mr Rawbot uses it |
+| --- | --- |
+| **Claude Code** | Runs your local `claude` CLI through the Anthropic Agent SDK. Uses your existing subscription login, not an API key. |
+| **Codex** | Runs through `codex app-server` using your existing `codex login`. |
+| **Ollama Cloud** | Runs a LangGraph ReAct coding agent with repository tools and local bash. Requires an Ollama Cloud API key. |
+
+Only configure the providers you want to use. The app shows availability and model lists in **Settings → Providers**.
+
+---
+
+## Install
+
+Download the latest build from [Releases](https://github.com/marcospcury/mrrawbot/releases). macOS builds are provided as `.dmg` artifacts for Apple Silicon and Intel. Other platforms can run from source.
+
+Two macOS packaging notes:
+
+- **Node.js 24 must be on your `PATH`** for packaged builds. The desktop app starts its backend with your system Node so it can reuse your existing `claude` and `codex` logins.
+- **The app is unsigned**, so macOS Gatekeeper may block first launch. Clear quarantine once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Mr Rawbot.app"
+```
+
+---
+
+## Run from source
 
 ```bash
 npm install
@@ -90,104 +123,67 @@ npm run dev      # web app at http://localhost:5173
 npm run app      # native Electron window
 ```
 
-There is **no config file to edit** — first-run setup happens entirely in the app:
+First-run setup happens in the app:
 
-1. Launch the app and open **Settings → Providers**.
-2. Each provider card shows whether it was detected. `claude` and `codex` are auto-detected from your `PATH`; if you keep them somewhere unusual, set their paths in the **Configuration** card.
-3. Paste your **Ollama Cloud API key** (only needed for Ollama agents).
-4. Save. Everything is stored **encrypted in the local SQLite database** and survives restarts and rebuilds.
+1. Open **Settings → Providers**.
+2. Confirm `claude` and `codex` were detected, or set custom CLI paths.
+3. Add an Ollama Cloud API key if you want Ollama runs.
+4. Save. Values are stored encrypted in the local SQLite database.
 
-`npm run dev` runs the Express backend (`:4000`) and the Vite dev server (`:5173`) together; Vite proxies `/api` to the backend.
+---
 
-### Advanced: environment variable overrides
+## Configuration
 
-All configuration happens in the app; these plain system environment variables exist only as power-user overrides. Values saved in Settings take precedence over them.
+There is no `.env` file. The UI is the source of truth for provider configuration.
+
+Plain `MRRAWBOT_*` environment variables are available only as power-user overrides:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MRRAWBOT_PORT` | `4000` | Backend port |
-| `MRRAWBOT_DB` | platform app-data dir | SQLite database location |
-| `MRRAWBOT_REPO_ROOTS` | `~` | Folders scanned for git repos (`:` or `,` separated) |
-| `MRRAWBOT_REPO_SCAN_DEPTH` | `6` | How deep to scan for `.git` |
-| `MRRAWBOT_CLAUDE_MODEL` | `claude-opus-4-8` | Default Claude model |
-| `MRRAWBOT_CODEX_MODEL` | `gpt-5.5` | Default Codex model |
-| `MRRAWBOT_OLLAMA_MODEL` | `qwen3-coder:480b-cloud` | Default Ollama Cloud model |
-| `MRRAWBOT_CLAUDE_BIN` / `MRRAWBOT_CODEX_BIN` | auto-detected from `PATH` | Override CLI paths |
-| `MRRAWBOT_CODEX_HOME` | `~/.codex` | Where Codex auth (`auth.json`) is read from. Codex always runs in an app-managed isolated `CODEX_HOME` seeded with that auth — never your real config/skills |
-| `MRRAWBOT_OLLAMA_API_KEY` | — | Ollama Cloud key (normally set in Settings instead) |
-| `MRRAWBOT_DEBUG` | — | `1` for verbose provider logs |
+| `MRRAWBOT_PORT` | `4000` | Backend port. |
+| `MRRAWBOT_DB` | platform app-data directory | SQLite database path. |
+| `MRRAWBOT_REPO_ROOTS` | `~` | Repo scan roots, separated by `:` or `,`. |
+| `MRRAWBOT_REPO_SCAN_DEPTH` | `6` | Maximum depth for repo discovery. |
+| `MRRAWBOT_CLAUDE_MODEL` | `claude-opus-4-8` | Default Claude model. |
+| `MRRAWBOT_CODEX_MODEL` | `gpt-5.5` | Default Codex model. |
+| `MRRAWBOT_OLLAMA_MODEL` | `qwen3-coder:480b-cloud` | Default Ollama Cloud model. |
+| `MRRAWBOT_CLAUDE_BIN` / `MRRAWBOT_CODEX_BIN` | auto-detected from `PATH` | Override CLI paths. |
+| `MRRAWBOT_CODEX_HOME` | `~/.codex` | Source for Codex `auth.json`; runtime uses an isolated app-managed Codex home. |
+| `MRRAWBOT_OLLAMA_API_KEY` | — | Ollama Cloud key, normally saved through Settings instead. |
+| `MRRAWBOT_DEBUG` | — | Set `1` for verbose provider logs. |
 
 ---
 
-## Using it
-
-1. **Add a repository** — pick one of your tracked git repos (or remove one anytime from the repo switcher).
-2. **New thread** — start a conversation. Each thread remembers its history (stored in SQLite).
-3. **Choose how to run** from the composer bottom row:
-   - **Single agent** (the default) — pick one model; the provider is inferred, then choose effort/fast/role.
-   - **A flow** — switch to any saved multi-agent pipeline (e.g. *Plan → Execute → Review*).
-4. **Describe a task** — watch the agent(s) run in the live timeline and read the final answer.
-
-Manage **Agents** and **Flows** from the sidebar footer. Built-in agents can be edited but not deleted; flows, including built-ins, can be deleted.
-
-### Built-in flows
-
-| Flow | Pipeline |
-| --- | --- |
-| Claude Code | Claude (solo) |
-| Codex | Codex (solo) |
-| Ollama Cloud | Ollama (solo) |
-| Plan → Build | Claude *plans* → Ollama executes each plan step with fresh context and completion checks |
-| Plan → Execute → Review | Claude *plans* → Ollama *executes* → Codex *reviews* (loops back to the executor until it replies `APPROVE`) |
-
----
-
-## Scripts
+## Developer commands
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Backend + frontend with hot reload |
-| `npm run app` | Build the frontend and launch the Electron app |
-| `npm run build` | Build the frontend to `dist/` |
-| `npm start` | Run the backend serving the built frontend on a single port (`:4000`) |
-| `npm run typecheck` | Type-check the whole project |
-| `npm test` | Run the Vitest suite |
+| `npm run dev` | Start the backend and Vite frontend with hot reload. |
+| `npm run app` | Build the frontend and launch Electron. |
+| `npm run build` | Build the frontend to `dist/`. |
+| `npm start` | Serve the built app from the backend on one port. |
+| `npm run typecheck` | Type-check the full project. |
+| `npm test` | Run the Vitest suite. |
 
 ---
 
-## Architecture
+## Technical shape
 
-```
-server/
-  index.ts                  Express app: REST API + CopilotKit runtime (+ serves dist in prod)
-  db/                       SQLite connection, migrations (user_version), raw-SQL repositories
-  services/
-    gitRepos.ts             git repository discovery
-    providerSettings.ts     encrypted provider config in SQLite (paths, API key)
-    providers/              claude (Agent SDK), codex (app-server), ollama (LangGraph ReAct) + repo tools
-    orchestrator/engine.ts  builds a LangGraph StateGraph from a flow definition at runtime
-    agent/MrrawbotAgent.ts  AG-UI agent: runs the orchestrator, streams events to CopilotKit
-  api/                      REST routes (repos, projects, threads, agents, flows, providers)
-shared/types.ts             types shared by server + client
-src/                        React frontend (sidebar, chat panel, run timeline, dialogs)
-electron/                   Electron shell (spawns the server, wraps the UI)
-```
+Mr Rawbot is a single ESM Node package: Electron shell, Vite/React frontend, Express backend, SQLite persistence, CopilotKit chat runtime, and LangGraph orchestration.
 
-**How a run works:** the CopilotKit chat sends a message to the in-process `MrrawbotAgent`, which loads the thread's flow + agents from SQLite, assembles a LangGraph graph, and runs each agent node. Node progress is streamed back as AG-UI `STATE_SNAPSHOT` events (the live timeline) and the final answer as a text message. Messages and runs are persisted per thread.
+Runs are persisted per thread. The chat streams agent state snapshots into the UI, while the backend stores messages, run timelines, flows, provider settings, artifacts, and per-run file changes in SQLite.
 
-**Extending it:** every agent is a `{ provider, model, effort, systemPrompt, role, … }` record and every flow is an ordered list of self-contained steps with optional loop-back. New roles/models are just new records; the engine assembles the graph from them. To add a new *provider*, implement a `ProviderRunner` and register it in `server/services/orchestrator/engine.ts`.
+Provider configuration saved in the UI is encrypted at rest with AES-256-GCM. The encryption key lives beside the database with restrictive file permissions. This protects against accidental plain-text dumps; it is not intended to defend against someone who already controls your machine.
 
 ---
 
-## Data & security notes
+## Releases
 
-- Single SQLite file per user (macOS: `~/Library/Application Support/Mr Rawbot/mrrawbot.db`; elsewhere: `~/.mrrawbot/`).
-- Provider config saved from the UI is encrypted at rest (AES-256-GCM) with a random key stored beside the database with `0600` permissions. This keeps secrets out of plain-text database dumps; it is not a defense against an attacker with full access to your machine.
-- Claude/Codex agents use your existing CLI logins; `ANTHROPIC_API_KEY` is intentionally stripped from the Claude subprocess so it uses your subscription rather than metered API billing.
+The project follows Semantic Versioning through Conventional Commits. `feat:` triggers a minor release, `fix:` triggers a patch release, and breaking changes use `feat!`, `fix!`, or a `BREAKING CHANGE:` footer.
 
-## Versioning & releases
+release-please opens version/changelog PRs; CI builds release artifacts after tags are created.
 
-The project follows [Semantic Versioning](https://semver.org/) with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:` → minor, `fix:` → patch, `feat!:`/`BREAKING CHANGE` → major). [release-please](https://github.com/googleapis/release-please) opens a release PR that bumps the version and changelog; merging it tags a GitHub release, and CI then builds and attaches the macOS/Windows/Linux installers to it (see `.github/workflows/release.yml`).
+---
 
 ## License
 
