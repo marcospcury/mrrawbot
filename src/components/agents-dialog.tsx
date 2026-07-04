@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import {
   ROLE_IDS,
-  ROLES,
+  BUILD_ROLES,
   effortLabel,
   effortsFor,
   roleName,
@@ -343,7 +343,7 @@ export function AgentsDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {ROLES.map((r) => (
+                      {BUILD_ROLES.map((r) => (
                         <SelectItem key={r.id} value={r.id}>
                           {r.name}
                         </SelectItem>

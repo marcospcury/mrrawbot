@@ -1,7 +1,14 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react"
 import { CopilotKit } from "@copilotkit/react-core"
 import "@copilotkit/react-ui/styles.css"
-import type { Project, RunDesign, SessionConfig, Thread } from "@shared/types"
+import type {
+  Project,
+  ProductDesignPersona,
+  RunArtifact,
+  SessionConfig,
+  Thread,
+  ThreadKind,
+} from "@shared/types"
 import { AgentsDialog } from "@/components/agents-dialog"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChatPanel } from "@/components/chat-panel"
@@ -38,6 +45,8 @@ export default function App() {
   const [workspaceSize, setWorkspaceSize] = usePersisted("mrr.workspace.size", 32)
   const [workspaceTab, setWorkspaceTab] = usePersisted<WorkspaceTab>("mrr.workspace.tab", "files")
   const [openDesignSlug, setOpenDesignSlug] = useState<string | null>(null)
+  const [persona, setPersona] = useState<ProductDesignPersona>("auto")
+  const [composerPrefill, setComposerPrefill] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = usePersisted("mrr.sidebar.width", 272)
   const [includeArchived, setIncludeArchived] = useState(false)
   const [dialog, setDialog] = useState<DialogKind>(null)
@@ -66,6 +75,7 @@ export default function App() {
   const [runDraft, setRunDraft] = useState<RunConfig | null>(null)
   useEffect(() => {
     setRunDraft(activeThread ? { flowId: activeThread.flowId, session: activeThread.session } : null)
+    setPersona("auto")
   }, [activeThread?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function changeRun(next: RunConfig) {
@@ -87,23 +97,33 @@ export default function App() {
     setOpenDesignSlug(null)
   }
 
-  // A designer run just landed prototypes: surface them like a delivered
-  // artifact — open the workspace on the Design tab with the newest one.
-  function designsLanded(designs: RunDesign[]) {
-    const newest = designs[designs.length - 1]
+  // A run just landed artifacts: surface them like a delivered artifact —
+  // open the workspace on the Artifacts tab, and open the prototype browser
+  // when the newest artifact is a prototype.
+  function artifactsLanded(artifacts: RunArtifact[]) {
+    const newest = artifacts[artifacts.length - 1]
     if (!newest) return
     setWorkspaceOpen(true)
     setWorkspaceTab("design")
-    setOpenDesignSlug(newest.slug)
+    setOpenDesignSlug(newest.kind === "prototype" ? newest.slug : null)
+  }
+
+  // "Start build thread" from a prompt artifact: new build thread with the
+  // prompt prefilled in the composer (not auto-sent).
+  async function startBuildThread(promptText: string) {
+    if (!activeProject) return
+    const thread = await threadMutations.create.mutateAsync({ kind: "build" })
+    selectThread(thread.id)
+    setComposerPrefill(promptText)
   }
 
   function selectThread(id: string) {
     if (activeProject) setThreadByProject({ ...threadByProject, [activeProject.id]: id })
   }
 
-  async function newThread() {
+  async function newThread(kind: ThreadKind = "build") {
     if (!activeProject) return
-    const thread = await threadMutations.create.mutateAsync({})
+    const thread = await threadMutations.create.mutateAsync({ kind })
     selectThread(thread.id)
   }
 
@@ -175,6 +195,7 @@ export default function App() {
             properties={{
               flowId: runDraft?.flowId ?? null,
               session: runDraft?.session ?? null,
+              persona: activeThread.kind === "product-design" ? persona : undefined,
             }}
             showDevConsole={false}
           >
@@ -192,7 +213,11 @@ export default function App() {
                   onRenameThread={renameThread}
                   onChangeRun={changeRun}
                   onManageFlows={() => setDialog("flows")}
-                  onDesignsLanded={designsLanded}
+                  onArtifactsLanded={artifactsLanded}
+                  persona={persona}
+                  onPersonaChange={setPersona}
+                  prefill={composerPrefill}
+                  onPrefillConsumed={() => setComposerPrefill(null)}
                 />
               </ResizablePanel>
               {workspaceOpen && (
@@ -214,6 +239,7 @@ export default function App() {
                         openDesignSlug={openDesignSlug}
                         onOpenDesign={setOpenDesignSlug}
                         onSelectThread={selectThread}
+                        onStartBuildThread={startBuildThread}
                       />
                     </Suspense>
                   </ResizablePanel>
@@ -226,7 +252,7 @@ export default function App() {
             hasProjects={hasProjects}
             projectName={activeProject?.name ?? null}
             onAddRepo={() => setDialog("repos")}
-            onNewThread={activeProject ? newThread : undefined}
+            onNewThread={activeProject ? () => newThread("build") : undefined}
           />
         )}
       </SidebarInset>

@@ -8,6 +8,7 @@ import {
   roleInfo,
   type AgentRunState,
   type FlowConfig,
+  type ProductDesignPersona,
   type RunStep,
   type SessionConfig,
 } from "@shared/types.ts"
@@ -18,9 +19,11 @@ import { saveMessage } from "../../db/repos/messages.ts"
 import { autoNameThread, getThread, threadCanAutoName } from "../../db/repos/threads.ts"
 import { providerLabel } from "../providers/status.ts"
 import { resolveFlowSteps, runFlow } from "../orchestrator/engine.ts"
+import { runProductDesignTurn } from "../orchestrator/productDesign.ts"
 import type { OrchEvent } from "../orchestrator/events.ts"
+import { buildArtifactContext } from "../artifactContext.ts"
 import { createChangeTracker } from "../changeTracker.ts"
-import { createDesignTracker, projectDesignsDir, type DesignTracker } from "../designs.ts"
+import { createArtifactTracker, projectArtifactsDir, type ArtifactTracker } from "../artifacts.ts"
 import { generateThreadTitle } from "../threadTitles.ts"
 
 // Fallback used only when a session carries an unknown role id; a valid role
@@ -137,7 +140,7 @@ export class MrrawbotAgent extends AbstractAgent {
       // ---- throttled STATE_SNAPSHOT emitter ----
       let runState: AgentRunState | null = null
       let changeTracker: Awaited<ReturnType<typeof createChangeTracker>> | null = null
-      let designTracker: DesignTracker | null = null
+      let artifactTracker: ArtifactTracker | null = null
       let pending = false
       let timer: ReturnType<typeof setTimeout> | null = null
       let savedMessageId: string | null = null
@@ -185,26 +188,29 @@ export class MrrawbotAgent extends AbstractAgent {
         const project = getProject(thread.projectId)
         if (!project) throw new Error("Project not found for this thread.")
         changeTracker = await createChangeTracker({ threadId, runId, repoPath: project.repoPath })
-        designTracker = await createDesignTracker({ projectId: project.id, threadId, runId })
+        artifactTracker = await createArtifactTracker({ projectId: project.id, threadId, runId })
+
+        const isProductDesign = thread.kind === "product-design"
+        const session =
+          (forwarded.session as SessionConfig | undefined) ?? thread.session ?? defaultSession()
 
         // The chat header forwards the live run config. A flowId means "flow mode";
         // a null/absent flowId means "single-agent quick run" driven by the session.
-        const flowId =
-          "flowId" in forwarded ? (forwarded.flowId as string | null) : thread.flowId
-
-        let flow: FlowConfig
-        if (flowId) {
-          const loaded = getFlow(flowId)
-          if (!loaded) throw new Error("Selected flow no longer exists.")
-          flow = loaded
-        } else {
-          const session =
-            (forwarded.session as SessionConfig | undefined) ?? thread.session ?? defaultSession()
-          flow = singleAgentFlow(session)
+        // Product Design sessions never run flows.
+        let flow: FlowConfig | null = null
+        if (!isProductDesign) {
+          const flowId =
+            "flowId" in forwarded ? (forwarded.flowId as string | null) : thread.flowId
+          if (flowId) {
+            const loaded = getFlow(flowId)
+            if (!loaded) throw new Error("Selected flow no longer exists.")
+            flow = loaded
+          } else {
+            flow = singleAgentFlow(session)
+          }
+          if (resolveFlowSteps(flow).length === 0) throw new Error(`Flow "${flow.name}" has no steps.`)
         }
-
-        const orderedSteps = resolveFlowSteps(flow)
-        if (orderedSteps.length === 0) throw new Error(`Flow "${flow.name}" has no steps.`)
+        const orderedSteps = flow ? resolveFlowSteps(flow) : []
 
         const lastUser = [...messages].reverse().find((m) => m.role === "user")
         const task = contentToString(lastUser?.content).trim()
@@ -226,8 +232,10 @@ export class MrrawbotAgent extends AbstractAgent {
           .slice(-12)
           .join("\n\n")
 
-        // Initial run state with every step pending.
-        const finalStepId = orderedSteps[orderedSteps.length - 1].id
+        // Initial run state with every step pending. Product Design turns start
+        // with no pre-declared steps — persona steps are synthesized from
+        // step_start events as the router picks them.
+        const finalStepId = orderedSteps.length > 0 ? orderedSteps[orderedSteps.length - 1].id : ""
         const steps: RunStep[] = orderedSteps.map((s) => ({
           id: s.id,
           agentName: s.name,
@@ -248,8 +256,8 @@ export class MrrawbotAgent extends AbstractAgent {
         runState = {
           runId,
           threadId,
-          flowId: flow.id,
-          flowName: flow.name,
+          flowId: flow?.id ?? null,
+          flowName: flow?.name ?? "Product Design",
           status: "running",
           steps,
           activeStepId: null,
@@ -264,15 +272,19 @@ export class MrrawbotAgent extends AbstractAgent {
         const getStep = (ev: OrchEvent): RunStep | undefined => {
           const existing = stepById.get(ev.stepId)
           if (existing) return existing
-          if (!ev.stepId.includes("#") || !runState) return undefined
-          const parent = stepById.get(ev.stepId.split("#")[0])
-          if (!parent) return undefined
+          if (!runState) return undefined
+          // Synthesize steps that weren't pre-declared: plan-executor sub-steps
+          // ("<parent>#<n>", inheriting the parent's config) and top-level
+          // Product Design persona steps (announced entirely by their
+          // step_start event).
+          const parent = ev.stepId.includes("#") ? stepById.get(ev.stepId.split("#")[0]) : undefined
+          if (!parent && ev.type !== "step_start") return undefined
           const step: RunStep = {
             id: ev.stepId,
             agentName: ev.type === "step_start" ? ev.title ?? ev.stepId : ev.stepId,
-            provider: ev.type === "step_start" ? ev.provider ?? parent.provider : parent.provider,
-            model: ev.type === "step_start" ? ev.model ?? parent.model : parent.model,
-            effort: ev.type === "step_start" ? ev.effort ?? parent.effort : parent.effort,
+            provider: (ev.type === "step_start" ? ev.provider ?? parent?.provider : parent?.provider) ?? "claude",
+            model: (ev.type === "step_start" ? ev.model ?? parent?.model : parent?.model) ?? "",
+            effort: (ev.type === "step_start" ? ev.effort ?? parent?.effort : parent?.effort) ?? null,
             title: ev.type === "step_start" ? ev.title ?? ev.stepId : ev.stepId,
             status: "pending",
             output: "",
@@ -340,22 +352,40 @@ export class MrrawbotAgent extends AbstractAgent {
           }
         }
 
-        const finalText = await runFlow({
-          flow,
-          repoPath: project.repoPath,
-          repoName: project.repoName,
-          designWorkspace: projectDesignsDir(project.id),
-          task,
-          history,
-          emit: onOrch,
-          signal: ac.signal,
-        })
+        let finalText: string
+        if (isProductDesign) {
+          const persona = (forwarded.persona as ProductDesignPersona | undefined) ?? "auto"
+          finalText = await runProductDesignTurn({
+            projectId: project.id,
+            repoPath: project.repoPath,
+            repoName: project.repoName,
+            artifactsWorkspace: projectArtifactsDir(project.id),
+            session,
+            persona,
+            task,
+            history,
+            emit: onOrch,
+            signal: ac.signal,
+          })
+        } else {
+          finalText = await runFlow({
+            flow: flow!,
+            repoPath: project.repoPath,
+            repoName: project.repoName,
+            designWorkspace: projectArtifactsDir(project.id),
+            artifactsContext: await buildArtifactContext(threadId),
+            task,
+            history,
+            emit: onOrch,
+            signal: ac.signal,
+          })
+        }
 
         await changeTracker.finish()
         changeTracker = null
-        const landedDesigns = await designTracker.finish()
-        designTracker = null
-        if (landedDesigns.length > 0) runState.designs = landedDesigns
+        const landedArtifacts = await artifactTracker.finish()
+        artifactTracker = null
+        if (landedArtifacts.length > 0) runState.artifacts = landedArtifacts
 
         if (cancelled) return
 
@@ -383,10 +413,10 @@ export class MrrawbotAgent extends AbstractAgent {
             await changeTracker.finish()
             changeTracker = null
           }
-          if (designTracker) {
-            const landedDesigns = await designTracker.finish()
-            designTracker = null
-            if (runState && landedDesigns.length > 0) runState.designs = landedDesigns
+          if (artifactTracker) {
+            const landedArtifacts = await artifactTracker.finish()
+            artifactTracker = null
+            if (runState && landedArtifacts.length > 0) runState.artifacts = landedArtifacts
           }
           const message = (err as Error)?.message ?? String(err)
           if (runState) {

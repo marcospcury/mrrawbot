@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { GitHubMergeMethod, NewAgentConfig, NewFlowConfig, SessionConfig } from "@shared/types"
+import type {
+  ArtifactKind,
+  GitHubMergeMethod,
+  NewAgentConfig,
+  NewFlowConfig,
+  SessionConfig,
+  ThreadKind,
+} from "@shared/types"
 import { api } from "./api"
 
 export const qk = {
@@ -16,7 +23,8 @@ export const qk = {
   threads: (projectId: string, includeArchived: boolean) => ["threads", projectId, includeArchived] as const,
   messages: (threadId: string) => ["messages", threadId] as const,
   threadChanges: (threadId: string) => ["thread-changes", threadId] as const,
-  designs: (projectId: string) => ["designs", projectId] as const,
+  artifacts: (projectId: string) => ["artifacts", projectId] as const,
+  threadArtifacts: (threadId: string) => ["thread-artifacts", threadId] as const,
   agents: ["agents"] as const,
   flows: ["flows"] as const,
 }
@@ -107,20 +115,47 @@ export function useThreadChanges(threadId: string | null, refetchInterval: numbe
   })
 }
 
-export function useProjectDesigns(projectId: string | null) {
+export function useProjectArtifacts(projectId: string | null) {
   return useQuery({
-    queryKey: qk.designs(projectId ?? ""),
-    queryFn: () => api.designs(projectId!),
+    queryKey: qk.artifacts(projectId ?? ""),
+    queryFn: () => api.artifacts(projectId!),
     enabled: !!projectId,
   })
 }
 
-export function useDeleteDesign(projectId: string | null) {
+export function useDeleteArtifact(projectId: string | null) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (slug: string) => api.deleteDesign(projectId!, slug),
+    mutationFn: ({ kind, slug }: { kind: ArtifactKind; slug: string }) =>
+      api.deleteArtifact(projectId!, kind, slug),
     onSuccess: () => {
-      if (projectId) void qc.invalidateQueries({ queryKey: qk.designs(projectId) })
+      if (projectId) void qc.invalidateQueries({ queryKey: qk.artifacts(projectId) })
+    },
+  })
+}
+
+export function useArtifactContent(projectId: string | null, kind: ArtifactKind | null, slug: string | null) {
+  return useQuery({
+    queryKey: ["artifact-content", projectId ?? "", kind ?? "", slug ?? ""] as const,
+    queryFn: () => api.artifactContent(projectId!, kind!, slug!),
+    enabled: !!projectId && !!kind && kind !== "prototype" && !!slug,
+  })
+}
+
+export function useThreadArtifacts(threadId: string | null) {
+  return useQuery({
+    queryKey: qk.threadArtifacts(threadId ?? ""),
+    queryFn: () => api.threadArtifacts(threadId!),
+    enabled: !!threadId,
+  })
+}
+
+export function useSetThreadArtifacts(threadId: string | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (artifactIds: string[]) => api.setThreadArtifacts(threadId!, artifactIds),
+    onSuccess: (attached) => {
+      if (threadId) qc.setQueryData(qk.threadArtifacts(threadId), attached)
     },
   })
 }
@@ -209,7 +244,7 @@ export function useThreadMutations(projectId: string | null) {
   }
   return {
     create: useMutation({
-      mutationFn: (input: { title?: string; flowId?: string | null; session?: SessionConfig | null }) =>
+      mutationFn: (input: { title?: string; kind?: ThreadKind; flowId?: string | null; session?: SessionConfig | null }) =>
         api.createThread(projectId!, input),
       onSuccess: invalidate,
     }),

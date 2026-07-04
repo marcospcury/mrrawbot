@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner"
 
 import type { Effort, FlowConfig, FlowStep, ModelEntry, NewFlowConfig, Provider } from "@shared/types"
-import { DEFAULT_ROLE_ID, ROLE_IDS, ROLES, effortsFor, effortLabel } from "@shared/types"
+import { BUILD_ROLES, DEFAULT_ROLE_ID, ROLE_IDS, effortsFor, effortLabel } from "@shared/types"
 import { cn } from "@/lib/utils"
 import { providerMeta } from "@/lib/format"
 import { useAgents, useFlowMutations, useFlows, useModels } from "@/lib/queries"
@@ -480,7 +480,7 @@ function StepCard({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.map((r) => (
+                  {BUILD_ROLES.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.name}
                     </SelectItem>

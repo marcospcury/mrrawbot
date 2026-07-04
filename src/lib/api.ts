@@ -2,8 +2,9 @@ import type {
   AgentConfig,
   AgentRunRecord,
   AppInfo,
+  ArtifactInfo,
+  ArtifactKind,
   ChatMessage,
-  DesignInfo,
   FlowConfig,
   FileContent,
   FileTreeEntry,
@@ -22,6 +23,7 @@ import type {
   SessionConfig,
   ThreadChange,
   Thread,
+  ThreadKind,
 } from "@shared/types"
 
 const BASE = "/api"
@@ -108,15 +110,27 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
-  designs: (projectId: string) => request<DesignInfo[]>(`/projects/${projectId}/designs`),
-  deleteDesign: (projectId: string, slug: string) =>
-    request<{ ok: boolean }>(`/projects/${projectId}/designs/${encodeURIComponent(slug)}`, { method: "DELETE" }),
+  artifacts: (projectId: string) => request<ArtifactInfo[]>(`/projects/${projectId}/artifacts`),
+  artifactContent: (projectId: string, kind: ArtifactKind, slug: string) =>
+    request<{ content: string }>(
+      `/projects/${projectId}/artifacts/${kind}/${encodeURIComponent(slug)}/content`,
+    ),
+  deleteArtifact: (projectId: string, kind: ArtifactKind, slug: string) =>
+    request<{ ok: boolean }>(`/projects/${projectId}/artifacts/${kind}/${encodeURIComponent(slug)}`, {
+      method: "DELETE",
+    }),
+  threadArtifacts: (threadId: string) => request<ArtifactInfo[]>(`/threads/${threadId}/artifacts`),
+  setThreadArtifacts: (threadId: string, artifactIds: string[]) =>
+    request<ArtifactInfo[]>(`/threads/${threadId}/artifacts`, {
+      method: "PUT",
+      body: JSON.stringify({ artifactIds }),
+    }),
 
   listThreads: (projectId: string, includeArchived = false) =>
     request<Thread[]>(`/projects/${projectId}/threads${includeArchived ? "?includeArchived=1" : ""}`),
   createThread: (
     projectId: string,
-    input: { title?: string; flowId?: string | null; session?: SessionConfig | null } = {},
+    input: { title?: string; kind?: ThreadKind; flowId?: string | null; session?: SessionConfig | null } = {},
   ) => request<Thread>(`/projects/${projectId}/threads`, { method: "POST", body: JSON.stringify(input) }),
   updateThread: (
     id: string,

@@ -8,7 +8,16 @@ import {
   type AssistantMessageProps,
   type UserMessageProps,
 } from "@copilotkit/react-ui"
-import { type AgentRunRecord, type AgentRunState, type FlowConfig, type Project, type RunDesign, type SessionConfig, type Thread } from "@shared/types"
+import {
+  type AgentRunRecord,
+  type AgentRunState,
+  type FlowConfig,
+  type ProductDesignPersona,
+  type Project,
+  type RunArtifact,
+  type SessionConfig,
+  type Thread,
+} from "@shared/types"
 import { FolderTree } from "lucide-react"
 import { AgentRunTimeline } from "@/components/agent-run-timeline"
 import { Composer } from "@/components/composer"
@@ -35,7 +44,11 @@ interface ChatPanelProps {
   onRenameThread: (id: string, title: string) => Promise<void>
   onChangeRun: (next: RunConfig) => void
   onManageFlows: () => void
-  onDesignsLanded: (designs: RunDesign[]) => void
+  onArtifactsLanded: (artifacts: RunArtifact[]) => void
+  persona: ProductDesignPersona
+  onPersonaChange: (persona: ProductDesignPersona) => void
+  prefill: string | null
+  onPrefillConsumed: () => void
 }
 
 export function ChatPanel({
@@ -49,7 +62,11 @@ export function ChatPanel({
   onRenameThread,
   onChangeRun,
   onManageFlows,
-  onDesignsLanded,
+  onArtifactsLanded,
+  persona,
+  onPersonaChange,
+  prefill,
+  onPrefillConsumed,
 }: ChatPanelProps) {
   const queryClient = useQueryClient()
   const headerRef = useRef<HTMLElement | null>(null)
@@ -87,9 +104,12 @@ export function ChatPanel({
     void queryClient.invalidateQueries({ queryKey: qk.threads(project.id, true) })
     void queryClient.invalidateQueries({ queryKey: ["runs", state.threadId] })
     void queryClient.invalidateQueries({ queryKey: ["messages", state.threadId] })
-    if (state.designs?.length) {
-      void queryClient.invalidateQueries({ queryKey: qk.designs(project.id) })
-      onDesignsLanded(state.designs)
+    // Old persisted runs carry `designs` (pre-artifacts); coalesce.
+    const artifacts: RunArtifact[] =
+      state.artifacts ?? state.designs?.map((d) => ({ kind: "prototype" as const, ...d })) ?? []
+    if (artifacts.length > 0) {
+      void queryClient.invalidateQueries({ queryKey: qk.artifacts(project.id) })
+      onArtifactsLanded(artifacts)
     }
   }
 
@@ -192,7 +212,8 @@ export function ChatPanel({
         <CopilotChat
           className="mrr-chat h-full"
           labels={{
-            placeholder: "Describe a coding task…",
+            placeholder:
+              thread.kind === "product-design" ? "Describe the product or feature…" : "Describe a coding task…",
           }}
           AssistantMessage={(props: AssistantMessageProps) => (
             <>
@@ -213,11 +234,16 @@ export function ChatPanel({
             chatReady?: boolean
           }) => (
             <Composer
+              thread={thread}
               flows={flows}
               flowId={flowId}
               session={session}
               onChangeRun={onChangeRun}
               onManageFlows={onManageFlows}
+              persona={persona}
+              onPersonaChange={onPersonaChange}
+              prefill={prefill}
+              onPrefillConsumed={onPrefillConsumed}
               inProgress={props.inProgress}
               onSend={props.onSend}
               onStop={props.onStop}

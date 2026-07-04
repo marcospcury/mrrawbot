@@ -60,36 +60,59 @@ export interface RoleInfo {
   id: string
   name: string
   description: string
+  /**
+   * Where the role is offered: "build" roles appear in flow steps and quick-run
+   * pickers; "product-design" roles run only inside Product Design sessions.
+   * Prompts for every role stay resolvable so legacy flows keep working.
+   */
+  surface: "build" | "product-design"
 }
 
 export const ROLES: RoleInfo[] = [
-  { id: "coder", name: "Coder", description: "Implements, fixes, refactors, and tests code." },
-  { id: "planner", name: "Planner", description: "Explores the code and produces a concrete implementation plan." },
+  { id: "coder", name: "Coder", description: "Implements, fixes, refactors, and tests code.", surface: "build" },
+  {
+    id: "planner",
+    name: "Planner",
+    description: "Explores the code and produces a concrete implementation plan.",
+    surface: "build",
+  },
   {
     id: "heavy-planner",
     name: "Heavy Planner",
     description: "Exhaustive planning: architecture fit, blast radius, edge cases, and guarded steps a smaller model can execute.",
+    surface: "build",
   },
-  { id: "reviewer", name: "Reviewer", description: "Reviews changes for correctness, security, and risk." },
+  {
+    id: "reviewer",
+    name: "Reviewer",
+    description: "Reviews changes for correctness, security, and risk.",
+    surface: "build",
+  },
   {
     id: "product-specialist",
     name: "Product Specialist",
     description: "Turns goals into specs, user stories, and acceptance criteria.",
+    surface: "product-design",
   },
   {
     id: "distributed-systems-architect",
     name: "Distributed Systems Architect",
     description: "Designs scalable, reliable, distributed architectures.",
+    surface: "build",
   },
   {
     id: "ui-designer",
     name: "Product/UI Designer",
     description:
       "Drafts high-fidelity, multi-page HTML/CSS prototypes — the layout and token reference for implementation.",
+    surface: "product-design",
   },
 ]
 
 export const ROLE_IDS: string[] = ROLES.map((r) => r.id)
+
+/** Roles offered in build-world pickers (flow steps, quick-run role pill, agent templates). */
+export const BUILD_ROLES: RoleInfo[] = ROLES.filter((r) => r.surface === "build")
 
 /** The role a single agent / new step takes on by default. */
 export const DEFAULT_ROLE_ID = "coder"
@@ -371,11 +394,19 @@ export function defaultSession(provider: Provider = "claude"): SessionConfig {
   return { provider, model: "", effort: null, fast: false, role: DEFAULT_ROLE_ID }
 }
 
+/**
+ * What a thread is for. "build" threads run flows or single agents against the
+ * repository; "product-design" threads run the interactive Product Specialist +
+ * Product/UI Designer session that produces app-internal artifacts.
+ */
+export type ThreadKind = "build" | "product-design"
+
 export interface Thread {
   id: string
   projectId: string
   title: string
   archived: boolean
+  kind: ThreadKind
   /** When set, run this flow. When null, run a single agent from `session`. */
   flowId: string | null
   /** Single-agent config used when `flowId` is null (quick-run mode). */
@@ -388,12 +419,15 @@ export interface Thread {
   updatedAt: string
 }
 
-/** A thread runs either as a single ad-hoc agent or as a saved flow. */
+/** A build thread runs either as a single ad-hoc agent or as a saved flow. */
 export type ThreadMode = "single" | "flow"
 
 export function threadMode(thread: Pick<Thread, "flowId">): ThreadMode {
   return thread.flowId ? "flow" : "single"
 }
+
+/** Persona override for a Product Design turn ("auto" lets the router decide). */
+export type ProductDesignPersona = "auto" | "specialist" | "designer"
 
 export type MessageRole = "user" | "assistant" | "system"
 
@@ -448,26 +482,47 @@ export interface AgentRunState {
   startedAt: number
   endedAt: number | null
   error: string | null
-  /** Design prototypes this run created or updated (present once the run ends). */
+  /**
+   * Legacy field: design prototypes from runs persisted before artifacts
+   * existed. New runs set `artifacts` instead; readers should coalesce
+   * `artifacts ?? designs`.
+   */
   designs?: RunDesign[]
+  /** Artifacts this run created or updated (present once the run ends). */
+  artifacts?: RunArtifact[]
 }
 
-/** Minimal design reference carried on a finished run's state snapshot. */
+/** Minimal design reference on old persisted run snapshots (pre-artifacts). */
 export interface RunDesign {
   slug: string
   title: string
 }
 
+/** What kind of app-internal artifact a Product Design session produced. */
+export type ArtifactKind = "spec" | "prototype" | "prompt"
+
+export const ARTIFACT_KINDS: ArtifactKind[] = ["spec", "prototype", "prompt"]
+
+/** Minimal artifact reference carried on a finished run's state snapshot. */
+export interface RunArtifact {
+  kind: ArtifactKind
+  slug: string
+  title: string
+}
+
 /**
- * A design prototype produced by the Product/UI Designer role. Artifacts are
- * app-internal (stored under the app data folder, never in the repository);
- * this is the index row with provenance back to the thread/run that made it.
+ * An app-internal artifact produced by a Product Design session: a spec or a
+ * ready-to-send build prompt (markdown) from the Product Specialist, or an
+ * HTML/CSS prototype from the Product/UI Designer. Stored under the app data
+ * folder, never in the repository; this is the index row with provenance back
+ * to the thread/run that made it.
  */
-export interface DesignInfo {
+export interface ArtifactInfo {
   id: string
   projectId: string
   threadId: string | null
   runId: string | null
+  kind: ArtifactKind
   slug: string
   title: string
   createdAt: string

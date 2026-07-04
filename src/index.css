@@ -365,3 +365,37 @@ cpk-web-inspector,
 [data-sidebar-resizing] [data-slot="sidebar-gap"] {
   transition: none !important;
 }
+
+/* Artifact document viewer (specs / build prompts in the Artifacts tab).
+   Reuses CopilotKit's markdown renderer outside the chat, so it needs the
+   same table/list fixes the chat applies, at a document-reading size. */
+.mrr-artifact-doc {
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+.mrr-artifact-doc .copilotKitMarkdown table {
+  border-collapse: collapse;
+  margin-bottom: 1.25em;
+}
+.mrr-artifact-doc .copilotKitMarkdown th,
+.mrr-artifact-doc .copilotKitMarkdown td {
+  padding: 0.45rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+  border-bottom: 1px solid var(--border);
+}
+.mrr-artifact-doc .copilotKitMarkdown th:first-child,
+.mrr-artifact-doc .copilotKitMarkdown td:first-child {
+  padding-left: 0;
+}
+.mrr-artifact-doc .copilotKitMarkdown th:last-child,
+.mrr-artifact-doc .copilotKitMarkdown td:last-child {
+  padding-right: 0;
+}
+.mrr-artifact-doc li.copilotKitMarkdownElement {
+  line-height: 1.6;
+}
+.mrr-artifact-doc li.copilotKitMarkdownElement:not(:last-child) {
+  margin-bottom: 0.375rem;
+}

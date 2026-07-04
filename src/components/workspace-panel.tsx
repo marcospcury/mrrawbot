@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { FolderTree, GitCompareArrows, PenTool } from "lucide-react"
 import { ChangesView } from "@/components/changes-view"
-import { DesignTab } from "@/components/design-tab"
+import { ArtifactsTab } from "@/components/artifacts-tab"
 import { FileTree } from "@/components/file-tree"
 import { FileViewer } from "@/components/file-viewer"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
@@ -9,8 +9,10 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePersisted } from "@/hooks/use-persisted"
-import { useProjectDesigns, useProjects } from "@/lib/queries"
+import { useProjectArtifacts, useProjects } from "@/lib/queries"
 
+// "design" is the persisted tab id for the Artifacts tab (kept for back-compat
+// with saved mrr.workspace.tab values).
 export type WorkspaceTab = "files" | "changes" | "design"
 
 interface WorkspacePanelProps {
@@ -21,6 +23,7 @@ interface WorkspacePanelProps {
   openDesignSlug: string | null
   onOpenDesign: (slug: string | null) => void
   onSelectThread?: (threadId: string) => void
+  onStartBuildThread?: (promptText: string) => void
 }
 
 export function WorkspacePanel({
@@ -31,6 +34,7 @@ export function WorkspacePanel({
   openDesignSlug,
   onOpenDesign,
   onSelectThread,
+  onStartBuildThread,
 }: WorkspacePanelProps) {
   const projects = useProjects()
   const project = projects.data?.find((p) => p.id === projectId) ?? null
@@ -38,15 +42,16 @@ export function WorkspacePanel({
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [viewerExpanded, setViewerExpanded] = useState(false)
 
-  // A dot on the Design tab when designs landed since it was last viewed.
-  const designs = useProjectDesigns(hasRepository ? projectId : null)
+  // A dot on the Artifacts tab when artifacts landed since it was last viewed.
+  const artifacts = useProjectArtifacts(hasRepository ? projectId : null)
   const [designsSeen, setDesignsSeen] = usePersisted<Record<string, string>>("mrr.designs.seen", {})
-  const latestDesignAt = designs.data?.[0]?.updatedAt ?? null
-  const hasNewDesigns = tab !== "design" && !!latestDesignAt && latestDesignAt > (designsSeen[projectId] ?? "")
+  const latestArtifactAt = artifacts.data?.[0]?.updatedAt ?? null
+  const hasNewArtifacts = tab !== "design" && !!latestArtifactAt && latestArtifactAt > (designsSeen[projectId] ?? "")
   useEffect(() => {
-    if (tab !== "design" || !latestDesignAt) return
-    if ((designsSeen[projectId] ?? "") < latestDesignAt) setDesignsSeen({ ...designsSeen, [projectId]: latestDesignAt })
-  }, [tab, latestDesignAt, projectId, designsSeen, setDesignsSeen])
+    if (tab !== "design" || !latestArtifactAt) return
+    if ((designsSeen[projectId] ?? "") < latestArtifactAt)
+      setDesignsSeen({ ...designsSeen, [projectId]: latestArtifactAt })
+  }, [tab, latestArtifactAt, projectId, designsSeen, setDesignsSeen])
 
   useEffect(() => {
     setSelectedPath(null)
@@ -77,11 +82,11 @@ export function WorkspacePanel({
               </TabsTrigger>
               <TabsTrigger value="design" className="relative gap-1.5">
                 <PenTool className="size-4" />
-                Design
-                {hasNewDesigns && (
+                Artifacts
+                {hasNewArtifacts && (
                   <span
                     className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary"
-                    aria-label="New designs"
+                    aria-label="New artifacts"
                   />
                 )}
               </TabsTrigger>
@@ -117,11 +122,12 @@ export function WorkspacePanel({
           </TabsContent>
 
           <TabsContent value="design" className="min-h-0 overflow-hidden">
-            <DesignTab
+            <ArtifactsTab
               projectId={projectId}
               openSlug={openDesignSlug}
               onOpenSlug={onOpenDesign}
               onSelectThread={onSelectThread}
+              onStartBuildThread={onStartBuildThread}
             />
           </TabsContent>
         </Tabs>

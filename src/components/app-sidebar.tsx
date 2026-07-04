@@ -11,13 +11,14 @@ import {
   Moon,
   MoreHorizontal,
   Pencil,
+  PenTool,
   Plus,
   Settings,
   Sun,
   Trash2,
   Workflow,
 } from "lucide-react"
-import type { Project, Thread } from "@shared/types"
+import type { Project, Thread, ThreadKind } from "@shared/types"
 import { useTheme } from "@/components/theme-provider"
 import {
   AlertDialog,
@@ -78,7 +79,7 @@ interface AppSidebarProps {
   includeArchived: boolean
   onToggleArchived: () => void
   onSelectThread: (id: string) => void
-  onNewThread: () => void
+  onNewThread: (kind: ThreadKind) => void
   onRenameThread: (id: string, title: string) => Promise<void>
   onArchiveThread: (thread: Thread, archived: boolean) => Promise<void>
   onDeleteThread: (thread: Thread) => Promise<void>
@@ -102,15 +103,48 @@ export function AppSidebar(props: AppSidebarProps) {
     <Sidebar collapsible="icon" className="border-r group-data-[collapsible=icon]:border-transparent">
       <SidebarHeader className="mrr-header gap-2 p-2">
         <ProjectSwitcher {...props} onRequestDelete={setDeletingProject} />
-        <Button
-          variant="outline"
-          className="h-9 justify-start gap-2 group-data-[collapsible=icon]:hidden"
-          onClick={props.onNewThread}
-          disabled={!activeProject}
-        >
-          <MessageSquarePlus className="size-4" />
-          New thread
-        </Button>
+        <div className="flex gap-1 group-data-[collapsible=icon]:hidden">
+          <Button
+            variant="outline"
+            className="h-9 min-w-0 flex-1 justify-start gap-2"
+            onClick={() => props.onNewThread("build")}
+            disabled={!activeProject}
+          >
+            <MessageSquarePlus className="size-4" />
+            New thread
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 shrink-0"
+                aria-label="New thread options"
+                disabled={!activeProject}
+              >
+                <ChevronsUpDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuItem onClick={() => props.onNewThread("build")} className="gap-2">
+                <MessageSquarePlus className="size-4 text-muted-foreground" />
+                <span className="grid gap-0.5">
+                  <span>Build thread</span>
+                  <span className="text-xs text-muted-foreground">Run agents and flows on the repository</span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => props.onNewThread("product-design")} className="gap-2">
+                <PenTool className="size-4 text-muted-foreground" />
+                <span className="grid gap-0.5">
+                  <span>Product design session</span>
+                  <span className="text-xs text-muted-foreground">
+                    Discover and design with the Specialist and Designer
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
