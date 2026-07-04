@@ -118,6 +118,21 @@ const migrations: string[] = [
   ALTER TABLE threads ADD COLUMN auto_title_generated_at TEXT;
   ALTER TABLE threads ADD COLUMN title_manually_edited INTEGER NOT NULL DEFAULT 0 CHECK (title_manually_edited IN (0,1));
   `,
+  // ---- v7: design prototypes index (artifacts live app-internal under env.designsRoot) ----
+  `
+  CREATE TABLE designs (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    thread_id  TEXT,
+    run_id     TEXT,
+    slug       TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(project_id, slug)
+  ) STRICT;
+  CREATE INDEX idx_designs_project ON designs(project_id, updated_at DESC);
+  `,
 ]
 
 export function migrate(database: DB = db): void {

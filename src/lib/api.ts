@@ -3,6 +3,7 @@ import type {
   AgentRunRecord,
   AppInfo,
   ChatMessage,
+  DesignInfo,
   FlowConfig,
   FileContent,
   FileTreeEntry,
@@ -106,6 +107,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+
+  designs: (projectId: string) => request<DesignInfo[]>(`/projects/${projectId}/designs`),
+  deleteDesign: (projectId: string, slug: string) =>
+    request<{ ok: boolean }>(`/projects/${projectId}/designs/${encodeURIComponent(slug)}`, { method: "DELETE" }),
 
   listThreads: (projectId: string, includeArchived = false) =>
     request<Thread[]>(`/projects/${projectId}/threads${includeArchived ? "?includeArchived=1" : ""}`),

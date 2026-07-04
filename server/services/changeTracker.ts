@@ -305,7 +305,7 @@ class TrackerState implements ChangeTracker {
       this.mode = "git"
       this.baseHead = (await git(this.input.repoPath, ["rev-parse", "HEAD"]))?.trim() ?? null
       this.startGitStatus = parsePorcelainZ(
-        (await git(this.input.repoPath, ["status", "--porcelain=v1", "-z"])) ?? "",
+        (await git(this.input.repoPath, ["status", "--porcelain=v1", "-uall", "-z"])) ?? "",
         this.input.repoPath,
       )
       for (const rel of this.startGitStatus.keys()) {
@@ -322,7 +322,7 @@ class TrackerState implements ChangeTracker {
 
   private async finishGit(): Promise<void> {
     const endStatus = parsePorcelainZ(
-      (await git(this.input.repoPath, ["status", "--porcelain=v1", "-z"])) ?? "",
+      (await git(this.input.repoPath, ["status", "--porcelain=v1", "-uall", "-z"])) ?? "",
       this.input.repoPath,
     )
     const paths = new Set([...this.startGitStatus.keys(), ...endStatus.keys()])

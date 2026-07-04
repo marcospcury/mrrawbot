@@ -8,7 +8,7 @@ import {
   type AssistantMessageProps,
   type UserMessageProps,
 } from "@copilotkit/react-ui"
-import { type AgentRunRecord, type AgentRunState, type FlowConfig, type Project, type SessionConfig, type Thread } from "@shared/types"
+import { type AgentRunRecord, type AgentRunState, type FlowConfig, type Project, type RunDesign, type SessionConfig, type Thread } from "@shared/types"
 import { FolderTree } from "lucide-react"
 import { AgentRunTimeline } from "@/components/agent-run-timeline"
 import { Composer } from "@/components/composer"
@@ -35,6 +35,7 @@ interface ChatPanelProps {
   onRenameThread: (id: string, title: string) => Promise<void>
   onChangeRun: (next: RunConfig) => void
   onManageFlows: () => void
+  onDesignsLanded: (designs: RunDesign[]) => void
 }
 
 export function ChatPanel({
@@ -48,6 +49,7 @@ export function ChatPanel({
   onRenameThread,
   onChangeRun,
   onManageFlows,
+  onDesignsLanded,
 }: ChatPanelProps) {
   const queryClient = useQueryClient()
   const headerRef = useRef<HTMLElement | null>(null)
@@ -66,19 +68,29 @@ export function ChatPanel({
     render: ({ state, status }) => {
       if (state?.runId) liveRunIds.current.add(state.runId)
       return state?.steps?.length ? (
-        <AgentRunTimelineWithChangeRefresh state={state} status={status} onComplete={refreshThreadChanges} />
+        <AgentRunTimelineWithChangeRefresh state={state} status={status} onComplete={handleRunComplete} />
       ) : null
     },
   })
 
-  function refreshThreadChanges(threadId: string) {
-    void queryClient.invalidateQueries({ queryKey: qk.threadChanges(threadId) })
+  // Runs whose completion side effects (query refresh, design auto-open)
+  // already fired; the state renderer re-renders freely after completion.
+  const completedRunIds = useRef(new Set<string>())
+
+  function handleRunComplete(state: AgentRunState) {
+    if (completedRunIds.current.has(state.runId)) return
+    completedRunIds.current.add(state.runId)
+    void queryClient.invalidateQueries({ queryKey: qk.threadChanges(state.threadId) })
     // Refresh both visible thread list variants after the run so a post-run
     // generated title appears immediately in the sidebar.
     void queryClient.invalidateQueries({ queryKey: qk.threads(project.id, false) })
     void queryClient.invalidateQueries({ queryKey: qk.threads(project.id, true) })
-    void queryClient.invalidateQueries({ queryKey: ["runs", threadId] })
-    void queryClient.invalidateQueries({ queryKey: ["messages", threadId] })
+    void queryClient.invalidateQueries({ queryKey: ["runs", state.threadId] })
+    void queryClient.invalidateQueries({ queryKey: ["messages", state.threadId] })
+    if (state.designs?.length) {
+      void queryClient.invalidateQueries({ queryKey: qk.designs(project.id) })
+      onDesignsLanded(state.designs)
+    }
   }
 
   // Chat history itself is hydrated by the CopilotKit connect stream (the
@@ -225,11 +237,11 @@ function AgentRunTimelineWithChangeRefresh({
 }: {
   state: AgentRunState
   status: "inProgress" | "complete"
-  onComplete: (threadId: string) => void
+  onComplete: (state: AgentRunState) => void
 }) {
   useEffect(() => {
-    if (status === "complete") onComplete(state.threadId)
-  }, [onComplete, state.runId, state.threadId, status])
+    if (status === "complete") onComplete(state)
+  }, [onComplete, state, status])
 
   return <AgentRunTimeline state={state} status={status} />
 }

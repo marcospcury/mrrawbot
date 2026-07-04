@@ -28,6 +28,12 @@ export interface RunFlowContext {
   flow: FlowConfig
   repoPath: string
   repoName: string
+  /**
+   * App-internal folder for this project's design prototypes
+   * (`env.designsRoot/<projectId>`). Designer steps create their work here —
+   * never inside the repository.
+   */
+  designWorkspace: string
   emit: Emit
   signal: AbortSignal
   runners?: Partial<Record<Provider, ProviderRunner>>
@@ -72,6 +78,8 @@ const ROLE_STEP_DIRECTIVES: Record<string, string> = {
     "You are the PRODUCT SPECIALIST step of this run. Your ONLY deliverable is the product spec — user stories, scope, and acceptance criteria — for the task below. Even though the task may be worded as something to build, you must NOT build it: do not create, modify, or delete any files.",
   "distributed-systems-architect":
     "You are the ARCHITECT step of this run. Your ONLY deliverable is the architecture/design for the task below. Even though the task may be worded as something to implement, you must NOT implement it: do not create, modify, or delete any files.",
+  "ui-designer":
+    "You are the DESIGNER step of this run. Your ONLY deliverable is a high-fidelity HTML/CSS prototype created inside your design workspace (the absolute path in the context below). Even though the task may be worded as something to implement, you must NOT implement it: the repository is read-only reference material — never create, modify, or delete anything inside it.",
 }
 
 function buildPrompt(step: FlowStep, state: Orch, ctx: RunFlowContext): string {
@@ -88,10 +96,7 @@ function buildPrompt(step: FlowStep, state: Orch, ctx: RunFlowContext): string {
   if (state.transcript.trim()) {
     sections.push(`# Work already done by earlier agents in this flow\n${state.transcript.trim()}`)
   }
-  sections.push(
-    `# Repository context\nYou are operating on the repository "${ctx.repoName}" located at ${ctx.repoPath}.` +
-      " You have full access to read, modify, create, and run anything in this repository.",
-  )
+  sections.push(repositoryContext(ctx, step.role))
   return sections.join("\n\n")
 }
 
@@ -117,6 +122,7 @@ function makeSingleNode(step: FlowStep, ctx: RunFlowContext, nextStep: FlowStep 
         effort: step.effort,
         fast: step.fast ?? false,
         cwd: ctx.repoPath,
+        workspaceDir: step.role === "ui-designer" ? ctx.designWorkspace : undefined,
         skillDirs: roleSkillDirs(step.role),
         maxIterations: step.maxIterations,
         temperature: step.temperature,
@@ -235,6 +241,7 @@ async function runPlanFallback({
     effort: step.effort,
     fast: step.fast ?? false,
     cwd: ctx.repoPath,
+    workspaceDir: step.role === "ui-designer" ? ctx.designWorkspace : undefined,
     skillDirs: roleSkillDirs(step.role),
     maxIterations: step.maxIterations,
     temperature: step.temperature,
@@ -284,7 +291,7 @@ async function runPlanSteps({
       effort: step.effort,
     })
     try {
-      const prompt = buildPlanStepPrompt({ ctx, plan, planStep, index: i, summaries })
+      const prompt = buildPlanStepPrompt({ ctx, role: step.role, plan, planStep, index: i, summaries })
       const result = await runner({
         prompt,
         system,
@@ -292,6 +299,7 @@ async function runPlanSteps({
         effort: step.effort,
         fast: step.fast ?? false,
         cwd: ctx.repoPath,
+        workspaceDir: step.role === "ui-designer" ? ctx.designWorkspace : undefined,
         skillDirs: roleSkillDirs(step.role),
         maxIterations: step.maxIterations,
         temperature: step.temperature,
@@ -341,7 +349,7 @@ async function runCompletionCheck({
     effort: step.effort,
   })
   try {
-    const prompt = buildCompletionCheckPrompt({ ctx, plan, summaries })
+    const prompt = buildCompletionCheckPrompt({ ctx, role: step.role, plan, summaries })
     const result = await runner({
       prompt,
       system,
@@ -371,12 +379,14 @@ async function runCompletionCheck({
 
 function buildPlanStepPrompt({
   ctx,
+  role,
   plan,
   planStep,
   index,
   summaries,
 }: {
   ctx: RunFlowContext
+  role: string
   plan: ParsedPlan
   planStep: ParsedPlanStep
   index: number
@@ -391,16 +401,18 @@ function buildPlanStepPrompt({
     `# Your task — step ${planStep.id}: ${planStep.title}\n${planStep.prompt}${
       planStep.verify ? `\n\nVerify this step with: ${planStep.verify}` : ""
     }\n\nEnd your response with a final line exactly like: DONE: one line of what changed.`,
-    repositoryContext(ctx),
+    repositoryContext(ctx, role),
   ].join("\n\n")
 }
 
 function buildCompletionCheckPrompt({
   ctx,
+  role,
   plan,
   summaries,
 }: {
   ctx: RunFlowContext
+  role: string
   plan: ParsedPlan
   summaries: string[]
 }) {
@@ -409,11 +421,21 @@ function buildCompletionCheckPrompt({
     `# Full step list\n${plan.steps.map((s) => `${s.id}. ${s.title}\n${s.prompt}`).join("\n\n")}`,
     `# Completion summaries\n${summaries.length ? summaries.map((s, i) => `${i + 1}. ${s}`).join("\n") : "None."}`,
     "Inspect the repository. List anything from the plan that is missing or incomplete as a `plan-json` block with the same schema. Use an empty `steps` array when the plan is fully implemented. Implement nothing yet.",
-    repositoryContext(ctx),
+    repositoryContext(ctx, role),
   ].join("\n\n")
 }
 
-function repositoryContext(ctx: RunFlowContext): string {
+function repositoryContext(ctx: RunFlowContext, role?: string): string {
+  if (role === "ui-designer") {
+    return (
+      `# Repository & workspace context\nYou are designing for the repository "${ctx.repoName}" located at ${ctx.repoPath}.` +
+      " Read anything in it to ground your design — its design system, domain vocabulary, and existing screens — but treat it as strictly read-only." +
+      `\n\nYour design workspace is ${ctx.designWorkspace} — an app-managed folder outside the repository.` +
+      ` Create your prototype in a new folder ${ctx.designWorkspace}/<kebab-case-slug>/ named for this assignment` +
+      " (iterate in place only when the task asks you to revise an existing prototype there)." +
+      " The user browses this workspace in the app's Design tab."
+    )
+  }
   return (
     `# Repository context\nYou are operating on the repository "${ctx.repoName}" located at ${ctx.repoPath}.` +
     " You have full access to read, modify, create, and run anything in this repository."
@@ -490,6 +512,8 @@ export interface RunFlowInput {
   flow: FlowConfig
   repoPath: string
   repoName: string
+  /** App-internal design-prototype folder for the project (see RunFlowContext). */
+  designWorkspace: string
   task: string
   history: string
   emit: Emit
@@ -503,6 +527,7 @@ export async function runFlow(input: RunFlowInput): Promise<string> {
     flow: input.flow,
     repoPath: input.repoPath,
     repoName: input.repoName,
+    designWorkspace: input.designWorkspace,
     emit: input.emit,
     signal: input.signal,
     runners: input.runners,

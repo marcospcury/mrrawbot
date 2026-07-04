@@ -11,6 +11,13 @@ export interface ProviderRunInput {
   fast: boolean
   cwd: string
   /**
+   * Extra writable root for roles whose deliverable lives outside the repo
+   * (the UI designer's app-internal design workspace). Claude and Codex reach
+   * it via the absolute path in the prompt; Ollama's path-scoped file tools
+   * accept it as a second allowed root.
+   */
+  workspaceDir?: string
+  /**
    * Absolute paths of the role's bundled skill folders (each holds a SKILL.md).
    * Ollama serves them through its list_skills/read_skill tools; Claude and
    * Codex read them by path (the system prompt lists them), so they ignore this.

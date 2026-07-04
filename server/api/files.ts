@@ -75,10 +75,10 @@ filesRouter.get(
   }),
 )
 
-// Static preview of repository files, used by the in-app prototype browser to
-// render HTML/CSS prototypes (e.g. the UI designer role's `design/prototypes`
-// output). Serves any repo file with its real MIME type so multi-page
-// prototypes with relative links and stylesheets work as real pages.
+// Static preview of repository files (the file viewer's "open in preview"
+// for repo HTML). Serves any repo file with its real MIME type so multi-page
+// documents with relative links and stylesheets work as real pages. Design
+// prototypes are served by the designs router from the app-internal store.
 filesRouter.get(
   "/projects/:id/preview/*",
   asyncHandler(async (req, res) => {

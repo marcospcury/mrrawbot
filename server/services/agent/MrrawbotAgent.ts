@@ -20,6 +20,7 @@ import { providerLabel } from "../providers/status.ts"
 import { resolveFlowSteps, runFlow } from "../orchestrator/engine.ts"
 import type { OrchEvent } from "../orchestrator/events.ts"
 import { createChangeTracker } from "../changeTracker.ts"
+import { createDesignTracker, projectDesignsDir, type DesignTracker } from "../designs.ts"
 import { generateThreadTitle } from "../threadTitles.ts"
 
 // Fallback used only when a session carries an unknown role id; a valid role
@@ -136,6 +137,7 @@ export class MrrawbotAgent extends AbstractAgent {
       // ---- throttled STATE_SNAPSHOT emitter ----
       let runState: AgentRunState | null = null
       let changeTracker: Awaited<ReturnType<typeof createChangeTracker>> | null = null
+      let designTracker: DesignTracker | null = null
       let pending = false
       let timer: ReturnType<typeof setTimeout> | null = null
       let savedMessageId: string | null = null
@@ -183,6 +185,7 @@ export class MrrawbotAgent extends AbstractAgent {
         const project = getProject(thread.projectId)
         if (!project) throw new Error("Project not found for this thread.")
         changeTracker = await createChangeTracker({ threadId, runId, repoPath: project.repoPath })
+        designTracker = await createDesignTracker({ projectId: project.id, threadId, runId })
 
         // The chat header forwards the live run config. A flowId means "flow mode";
         // a null/absent flowId means "single-agent quick run" driven by the session.
@@ -341,6 +344,7 @@ export class MrrawbotAgent extends AbstractAgent {
           flow,
           repoPath: project.repoPath,
           repoName: project.repoName,
+          designWorkspace: projectDesignsDir(project.id),
           task,
           history,
           emit: onOrch,
@@ -349,6 +353,9 @@ export class MrrawbotAgent extends AbstractAgent {
 
         await changeTracker.finish()
         changeTracker = null
+        const landedDesigns = await designTracker.finish()
+        designTracker = null
+        if (landedDesigns.length > 0) runState.designs = landedDesigns
 
         if (cancelled) return
 
@@ -375,6 +382,11 @@ export class MrrawbotAgent extends AbstractAgent {
           if (changeTracker) {
             await changeTracker.finish()
             changeTracker = null
+          }
+          if (designTracker) {
+            const landedDesigns = await designTracker.finish()
+            designTracker = null
+            if (runState && landedDesigns.length > 0) runState.designs = landedDesigns
           }
           const message = (err as Error)?.message ?? String(err)
           if (runState) {

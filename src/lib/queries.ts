@@ -16,6 +16,7 @@ export const qk = {
   threads: (projectId: string, includeArchived: boolean) => ["threads", projectId, includeArchived] as const,
   messages: (threadId: string) => ["messages", threadId] as const,
   threadChanges: (threadId: string) => ["thread-changes", threadId] as const,
+  designs: (projectId: string) => ["designs", projectId] as const,
   agents: ["agents"] as const,
   flows: ["flows"] as const,
 }
@@ -103,6 +104,24 @@ export function useThreadChanges(threadId: string | null, refetchInterval: numbe
     queryFn: () => api.getThreadChanges(threadId!),
     enabled: !!threadId,
     refetchInterval,
+  })
+}
+
+export function useProjectDesigns(projectId: string | null) {
+  return useQuery({
+    queryKey: qk.designs(projectId ?? ""),
+    queryFn: () => api.designs(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+export function useDeleteDesign(projectId: string | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (slug: string) => api.deleteDesign(projectId!, slug),
+    onSuccess: () => {
+      if (projectId) void qc.invalidateQueries({ queryKey: qk.designs(projectId) })
+    },
   })
 }
 

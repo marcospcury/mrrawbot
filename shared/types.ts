@@ -448,6 +448,30 @@ export interface AgentRunState {
   startedAt: number
   endedAt: number | null
   error: string | null
+  /** Design prototypes this run created or updated (present once the run ends). */
+  designs?: RunDesign[]
+}
+
+/** Minimal design reference carried on a finished run's state snapshot. */
+export interface RunDesign {
+  slug: string
+  title: string
+}
+
+/**
+ * A design prototype produced by the Product/UI Designer role. Artifacts are
+ * app-internal (stored under the app data folder, never in the repository);
+ * this is the index row with provenance back to the thread/run that made it.
+ */
+export interface DesignInfo {
+  id: string
+  projectId: string
+  threadId: string | null
+  runId: string | null
+  slug: string
+  title: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface AgentRunRecord {

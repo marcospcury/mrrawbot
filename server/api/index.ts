@@ -5,6 +5,7 @@ import type { AppInfo } from "@shared/types.ts"
 import { COPILOT_RUNTIME_PATH, env, ROOT_DIR } from "../env.ts"
 import { getModelEntries } from "../services/providers/status.ts"
 import { agentsRouter } from "./agents.ts"
+import { designsRouter } from "./designs.ts"
 import { filesRouter } from "./files.ts"
 import { flowsRouter } from "./flows.ts"
 import { projectsRouter } from "./projects.ts"
@@ -41,7 +42,8 @@ export function makeApiRouter(): Router {
   r.use("/flows", flowsRouter)
   r.use("/providers", providersRouter)
   r.use("/", projectGitRouter)
-  // filesRouter and threadsRouter define fully-qualified paths (/projects/:id/..., /threads/:id ...)
+  // filesRouter, designsRouter and threadsRouter define fully-qualified paths (/projects/:id/..., /threads/:id ...)
+  r.use("/", designsRouter)
   r.use("/", filesRouter)
   r.use("/", threadsRouter)
 

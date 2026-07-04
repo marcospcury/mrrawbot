@@ -36,6 +36,12 @@ const DEFAULT_REPO_ROOTS = [homedir()].filter((p) => existsSync(p))
 export interface Env {
   port: number
   dbPath: string
+  /**
+   * App-internal store for design prototypes (`<designsRoot>/<projectId>/<slug>/`).
+   * Lives next to the SQLite database — never inside a user repository.
+   * Override with MRRAWBOT_DESIGNS_DIR.
+   */
+  designsRoot: string
   repoRoots: string[]
   repoScanDepth: number
 
@@ -102,9 +108,12 @@ function defaultDbPath(): string {
   return path.join(dir, "mrrawbot.db")
 }
 
+const dbPath = process.env.MRRAWBOT_DB ?? defaultDbPath()
+
 export const env: Env = {
   port: Number(process.env.MRRAWBOT_PORT ?? 4000),
-  dbPath: process.env.MRRAWBOT_DB ?? defaultDbPath(),
+  dbPath,
+  designsRoot: process.env.MRRAWBOT_DESIGNS_DIR ?? path.join(path.dirname(dbPath), "designs"),
   repoRoots:
     parseRoots(process.env.MRRAWBOT_REPO_ROOTS).filter((p) => existsSync(p)).length > 0
       ? parseRoots(process.env.MRRAWBOT_REPO_ROOTS).filter((p) => existsSync(p))

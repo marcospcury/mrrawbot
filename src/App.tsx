@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react"
 import { CopilotKit } from "@copilotkit/react-core"
 import "@copilotkit/react-ui/styles.css"
-import type { Project, SessionConfig, Thread } from "@shared/types"
+import type { Project, RunDesign, SessionConfig, Thread } from "@shared/types"
 import { AgentsDialog } from "@/components/agents-dialog"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChatPanel } from "@/components/chat-panel"
@@ -15,6 +15,7 @@ import { WelcomeScreen } from "@/components/welcome-screen"
 const WorkspacePanel = lazy(() =>
   import("@/components/workspace-panel").then((m) => ({ default: m.WorkspacePanel })),
 )
+import type { WorkspaceTab } from "@/components/workspace-panel"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { usePersisted } from "@/hooks/use-persisted"
@@ -35,6 +36,8 @@ export default function App() {
   const [threadByProject, setThreadByProject] = usePersisted<Record<string, string>>("mrr.activeThread", {})
   const [workspaceOpen, setWorkspaceOpen] = usePersisted("mrr.workspace.open", false)
   const [workspaceSize, setWorkspaceSize] = usePersisted("mrr.workspace.size", 32)
+  const [workspaceTab, setWorkspaceTab] = usePersisted<WorkspaceTab>("mrr.workspace.tab", "files")
+  const [openDesignSlug, setOpenDesignSlug] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = usePersisted("mrr.sidebar.width", 272)
   const [includeArchived, setIncludeArchived] = useState(false)
   const [dialog, setDialog] = useState<DialogKind>(null)
@@ -81,6 +84,17 @@ export default function App() {
 
   function selectProject(id: string) {
     setActiveProjectId(id)
+    setOpenDesignSlug(null)
+  }
+
+  // A designer run just landed prototypes: surface them like a delivered
+  // artifact — open the workspace on the Design tab with the newest one.
+  function designsLanded(designs: RunDesign[]) {
+    const newest = designs[designs.length - 1]
+    if (!newest) return
+    setWorkspaceOpen(true)
+    setWorkspaceTab("design")
+    setOpenDesignSlug(newest.slug)
   }
 
   function selectThread(id: string) {
@@ -178,6 +192,7 @@ export default function App() {
                   onRenameThread={renameThread}
                   onChangeRun={changeRun}
                   onManageFlows={() => setDialog("flows")}
+                  onDesignsLanded={designsLanded}
                 />
               </ResizablePanel>
               {workspaceOpen && (
@@ -191,7 +206,15 @@ export default function App() {
                     onResize={(size) => setWorkspaceSize(Math.round(size.asPercentage))}
                   >
                     <Suspense fallback={null}>
-                      <WorkspacePanel projectId={activeProject.id} threadId={activeThread.id} />
+                      <WorkspacePanel
+                        projectId={activeProject.id}
+                        threadId={activeThread.id}
+                        tab={workspaceTab}
+                        onTabChange={setWorkspaceTab}
+                        openDesignSlug={openDesignSlug}
+                        onOpenDesign={setOpenDesignSlug}
+                        onSelectThread={selectThread}
+                      />
                     </Suspense>
                   </ResizablePanel>
                 </>

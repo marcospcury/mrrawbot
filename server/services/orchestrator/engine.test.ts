@@ -68,6 +68,7 @@ describe("role step directives", () => {
       flow: flow([{ ...step("plan", "codex"), role: "planner" }]),
       repoPath: "/repo",
       repoName: "repo",
+      designWorkspace: "/designs/p1",
       task: "Implement dark mode",
       history: "",
       emit: () => {},
@@ -79,6 +80,36 @@ describe("role step directives", () => {
     expect(prompts[0].startsWith("# Your job in this step\nYou are the PLANNER step")).toBe(true)
     expect(prompts[0]).toContain("must NOT implement")
     expect(prompts[0]).toContain("# Your task\nImplement dark mode")
+  })
+
+  it("gives designer steps the app-internal design workspace and a read-only repo", async () => {
+    const inputs: { prompt: string; workspaceDir?: string }[] = []
+    const runners: Partial<Record<Provider, ProviderRunner>> = {
+      claude: async (input) => {
+        inputs.push({ prompt: input.prompt, workspaceDir: input.workspaceDir })
+        return { text: "the prototype", usage: null }
+      },
+    }
+
+    await runFlow({
+      flow: flow([{ ...step("design", "claude"), role: "ui-designer" }]),
+      repoPath: "/repo",
+      repoName: "repo",
+      designWorkspace: "/designs/p1",
+      task: "Design the kanban board",
+      history: "",
+      emit: () => {},
+      signal: new AbortController().signal,
+      runners,
+    })
+
+    expect(inputs).toHaveLength(1)
+    expect(inputs[0].workspaceDir).toBe("/designs/p1")
+    expect(inputs[0].prompt).toContain("You are the DESIGNER step")
+    expect(inputs[0].prompt).toContain("Your design workspace is /designs/p1")
+    expect(inputs[0].prompt).toContain("strictly read-only")
+    // The generic full-write repository context must not leak into designer steps.
+    expect(inputs[0].prompt).not.toContain("full access to read, modify, create")
   })
 
   it("adds no directive for a custom (role-less) step", async () => {
@@ -94,6 +125,7 @@ describe("role step directives", () => {
       flow: flow([step("custom", "codex")]),
       repoPath: "/repo",
       repoName: "repo",
+      designWorkspace: "/designs/p1",
       task: "Do the thing",
       history: "",
       emit: () => {},
@@ -132,6 +164,7 @@ describe("plan-executor mode", () => {
       flow: flow([step("plan", "claude"), { ...step("build", "codex"), mode: "plan-executor" }]),
       repoPath: "/repo",
       repoName: "repo",
+      designWorkspace: "/designs/p1",
       task: "Implement it",
       history: "User: old unrelated transcript",
       emit: () => {},
@@ -179,6 +212,7 @@ describe("plan-executor mode", () => {
       flow: flow([step("plan", "claude"), { ...step("build", "codex"), mode: "plan-executor" }]),
       repoPath: "/repo",
       repoName: "repo",
+      designWorkspace: "/designs/p1",
       task: "Implement it",
       history: "",
       emit: () => {},
@@ -212,6 +246,7 @@ describe("plan-executor mode", () => {
       ]),
       repoPath: "/repo",
       repoName: "repo",
+      designWorkspace: "/designs/p1",
       task: "Implement it",
       history: "",
       emit: () => {},
