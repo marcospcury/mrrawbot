@@ -238,33 +238,43 @@ export function AppSidebar(props: AppSidebarProps) {
 function SidebarResizeHandle({ onResize }: { onResize: (width: number) => void }) {
   const { state } = useSidebar()
   if (state !== "expanded") return null
+  // app-no-drag: the handle spans the full window height, so its top overlaps
+  // the -webkit-app-region:drag header strip — without it, grabbing the handle
+  // there starts an OS window drag instead of a resize.
   return (
     <div
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize sidebar"
-      className="absolute inset-y-0 -right-0.5 z-20 w-1.5 cursor-col-resize transition-colors hover:bg-border active:bg-border"
-      onMouseDown={(e) => {
+      className="app-no-drag absolute inset-y-0 -right-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-border active:bg-border"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
         e.preventDefault()
         // Drive the CSS var directly during the drag (and disable the sidebar's
         // width transition via data-sidebar-resizing) so it tracks the cursor;
-        // commit to persisted state on mouseup.
-        const wrapper = e.currentTarget.closest<HTMLElement>('[data-slot="sidebar-wrapper"]')
+        // commit to persisted state on release.
+        const handle = e.currentTarget
+        const wrapper = handle.closest<HTMLElement>('[data-slot="sidebar-wrapper"]')
         if (!wrapper) return
+        // Pointer capture keeps the drag tracking even when the cursor crosses
+        // drag regions, embedded content, or leaves the window.
+        handle.setPointerCapture(e.pointerId)
         wrapper.setAttribute("data-sidebar-resizing", "")
         let width = 0
-        const onMove = (ev: MouseEvent) => {
+        const onMove = (ev: PointerEvent) => {
           width = Math.min(420, Math.max(200, ev.clientX))
           wrapper.style.setProperty("--sidebar-width", `${width}px`)
         }
-        const onUp = () => {
-          document.removeEventListener("mousemove", onMove)
-          document.removeEventListener("mouseup", onUp)
+        const onEnd = () => {
+          handle.removeEventListener("pointermove", onMove)
+          handle.removeEventListener("pointerup", onEnd)
+          handle.removeEventListener("pointercancel", onEnd)
           wrapper.removeAttribute("data-sidebar-resizing")
           if (width) onResize(width)
         }
-        document.addEventListener("mousemove", onMove)
-        document.addEventListener("mouseup", onUp)
+        handle.addEventListener("pointermove", onMove)
+        handle.addEventListener("pointerup", onEnd)
+        handle.addEventListener("pointercancel", onEnd)
       }}
     />
   )

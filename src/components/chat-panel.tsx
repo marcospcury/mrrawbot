@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCoAgentStateRender } from "@copilotkit/react-core"
 import {
@@ -70,7 +70,6 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const queryClient = useQueryClient()
   const headerRef = useRef<HTMLElement | null>(null)
-  const titleRef = useRef<HTMLElement | null>(null)
   const headerActionsRef = useRef<HTMLDivElement | null>(null)
   const fullActionsWidth = useRef(0)
   const [compactGit, setCompactGit] = useState(false)
@@ -152,9 +151,15 @@ export function ChatPanel({
 
   useLayoutEffect(() => {
     const header = headerRef.current
-    const title = titleRef.current
     const actions = headerActionsRef.current
-    if (!header || !title || !actions) return
+    if (!header || !actions) return
+
+    // Compact the git control only when the expanded control would squeeze the
+    // (truncatable) title below a fixed minimum — never based on how long the
+    // title text happens to be. The hysteresis band keeps the flip from
+    // oscillating around the threshold.
+    const TITLE_MIN_WIDTH = 160
+    const HYSTERESIS = 56
 
     const updateGitFit = () => {
       const headerStyle = getComputedStyle(header)
@@ -166,27 +171,24 @@ export function ChatPanel({
       if (!compactGit) fullActionsWidth.current = actionsWidth
 
       const expandedActionsWidth = fullActionsWidth.current || actionsWidth
-      const titlePreferredWidth = Math.min(Math.max(title.scrollWidth, 140), 420)
-      const titleWidthWithExpandedGit = contentWidth - expandedActionsWidth - gap
-      const shouldCompact = titleWidthWithExpandedGit < titlePreferredWidth
-      const shouldExpand = titleWidthWithExpandedGit > titlePreferredWidth + 48
-
-      setCompactGit((current) => (current ? !shouldExpand : shouldCompact))
+      const titleSpace = contentWidth - expandedActionsWidth - gap
+      setCompactGit((current) =>
+        current ? titleSpace < TITLE_MIN_WIDTH + HYSTERESIS : titleSpace < TITLE_MIN_WIDTH,
+      )
     }
 
     updateGitFit()
 
     const observer = new ResizeObserver(updateGitFit)
     observer.observe(header)
-    observer.observe(title)
     observer.observe(actions)
     return () => observer.disconnect()
-  }, [compactGit, thread.title])
+  }, [compactGit])
 
   return (
     <div className="flex h-full flex-col">
       <header ref={headerRef} className="mrr-header flex min-h-12 min-w-0 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
-        <EditableTitle title={thread.title} measureRef={titleRef} onSave={(t) => onRenameThread(thread.id, t)} />
+        <EditableTitle title={thread.title} onSave={(t) => onRenameThread(thread.id, t)} />
 
         <div ref={headerActionsRef} className="ml-auto flex min-w-0 shrink-0 items-center gap-1">
           <GitHeaderControl project={project} thread={thread} compact={compactGit} />
@@ -274,11 +276,9 @@ function AgentRunTimelineWithChangeRefresh({
 
 function EditableTitle({
   title,
-  measureRef,
   onSave,
 }: {
   title: string
-  measureRef: MutableRefObject<HTMLElement | null>
   onSave: (title: string) => Promise<void>
 }) {
   const [editing, setEditing] = useState(false)
@@ -291,9 +291,6 @@ function EditableTitle({
   if (editing) {
     return (
       <input
-        ref={(node) => {
-          measureRef.current = node
-        }}
         autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -312,9 +309,6 @@ function EditableTitle({
 
   return (
     <button
-      ref={(node) => {
-        measureRef.current = node
-      }}
       onClick={() => setEditing(true)}
       className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
       title="Click to rename"

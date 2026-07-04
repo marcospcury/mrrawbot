@@ -6,7 +6,7 @@
 // keeps the architecture identical to the web app. The renderer is just a window
 // pointed at the local server (or the Vite dev server when MRRAWBOT_ELECTRON_URL is set).
 
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, shell } = require("electron")
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, shell } = require("electron")
 const { spawn, execSync } = require("node:child_process")
 const { existsSync } = require("node:fs")
 const os = require("node:os")
@@ -178,9 +178,14 @@ async function createWindow() {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    if (/^https?:/i.test(url)) shell.openExternal(url)
     return { action: "deny" }
   })
+
+  // macOS fullscreen hides the traffic lights; tell the renderer so it can
+  // drop the title-bar padding it reserves for them.
+  win.on("enter-full-screen", () => win && win.webContents.send("mrrawbot:fullscreen", true))
+  win.on("leave-full-screen", () => win && win.webContents.send("mrrawbot:fullscreen", false))
 
   // Avoid the white flash: reveal only once the renderer has painted.
   win.once("ready-to-show", () => win && win.show())
@@ -226,7 +231,7 @@ function openPreviewWindow(url) {
     },
   })
   previewWin.webContents.setWindowOpenHandler(({ url: external }) => {
-    shell.openExternal(external)
+    if (/^https?:/i.test(external)) shell.openExternal(external)
     return { action: "deny" }
   })
   previewWin.on("closed", () => {
@@ -234,6 +239,21 @@ function openPreviewWindow(url) {
   })
   previewWin.loadURL(url).catch(() => {})
 }
+
+// Keep native chrome (menus, dialogs, Windows title-bar overlay) in step with
+// the app theme so the shell never clashes with the renderer.
+ipcMain.on("mrrawbot:set-theme", (_event, theme) => {
+  if (theme !== "dark" && theme !== "light" && theme !== "system") return
+  nativeTheme.themeSource = theme
+  if (process.platform === "win32" && win && typeof win.setTitleBarOverlay === "function") {
+    const dark = theme === "dark" || (theme === "system" && nativeTheme.shouldUseDarkColors)
+    win.setTitleBarOverlay(
+      dark
+        ? { color: "#09090b", symbolColor: "#a1a1aa", height: 44 }
+        : { color: "#ffffff", symbolColor: "#52525b", height: 44 },
+    )
+  }
+})
 
 ipcMain.handle("mrrawbot:open-preview", (_event, relPath) => {
   if (typeof relPath !== "string") return

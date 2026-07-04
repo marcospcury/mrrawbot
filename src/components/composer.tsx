@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import {
   Bot,
@@ -92,7 +92,9 @@ export function Composer({
       : chatContext.icons.sendIcon
   const buttonAlt = !chatReady ? "Loading" : inProgress ? "Stop" : "Send"
 
-  useEffect(() => {
+  // Layout effect: size the textarea before paint so growing/shrinking while
+  // typing never flashes an intermediate height.
+  useLayoutEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = "auto"

@@ -119,7 +119,7 @@ function InlineDiff({ change }: { change: ThreadChange }) {
     <div className="border-t bg-background">
       {diff.note ? <div className="border-b px-3 py-2 text-xs text-muted-foreground">{diff.note}</div> : null}
       <CodeMirror
-        key={`${resolvedTheme}:${change.id}:${change.createdAt}`}
+        key={`${change.id}:${change.createdAt}`}
         value={diff.modified}
         maxHeight="28rem"
         className="max-h-[28rem] overflow-hidden text-xs [&_.cm-editor]:max-h-[28rem] [&_.cm-scroller]:overflow-auto"
