@@ -118,7 +118,7 @@ export default function App() {
   }
 
   function selectThread(id: string) {
-    if (activeProject) setThreadByProject({ ...threadByProject, [activeProject.id]: id })
+    if (activeProject) setThreadByProject((prev) => ({ ...prev, [activeProject.id]: id }))
   }
 
   async function newThread(kind: ThreadKind = "build") {
@@ -143,16 +143,20 @@ export default function App() {
 
   function clearActiveThread() {
     if (!activeProject) return
-    const next = { ...threadByProject }
-    delete next[activeProject.id]
-    setThreadByProject(next)
+    setThreadByProject((prev) => {
+      const next = { ...prev }
+      delete next[activeProject.id]
+      return next
+    })
   }
 
   async function deleteProject(project: Project) {
     await projectMutations.remove.mutateAsync(project.id)
-    const nextThreads = { ...threadByProject }
-    delete nextThreads[project.id]
-    setThreadByProject(nextThreads)
+    setThreadByProject((prev) => {
+      const next = { ...prev }
+      delete next[project.id]
+      return next
+    })
     if (activeProjectId === project.id) {
       const remaining = (projects.data ?? []).filter((p) => p.id !== project.id)
       setActiveProjectId(remaining[0]?.id ?? null)
@@ -199,7 +203,17 @@ export default function App() {
             }}
             showDevConsole={false}
           >
-            <ResizablePanelGroup orientation="horizontal" className="h-full">
+            <ResizablePanelGroup
+              orientation="horizontal"
+              className="h-full"
+              // Persist the split only when the user releases the drag — a
+              // per-frame setState here re-renders the whole chat + workspace
+              // tree mid-drag and makes resizing feel janky.
+              onLayoutChanged={(layout, meta) => {
+                const size = layout["workspace"]
+                if (meta.isUserInteraction && typeof size === "number") setWorkspaceSize(Math.round(size))
+              }}
+            >
               {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
               <ResizablePanel id="chat" minSize="25%" defaultSize={workspaceOpen ? `${100 - workspaceSize}%` : "100%"}>
                 <ChatPanel
@@ -223,13 +237,7 @@ export default function App() {
               {workspaceOpen && (
                 <>
                   <ResizableHandle />
-                  <ResizablePanel
-                    id="workspace"
-                    minSize="24%"
-                    maxSize="75%"
-                    defaultSize={`${workspaceSize}%`}
-                    onResize={(size) => setWorkspaceSize(Math.round(size.asPercentage))}
-                  >
+                  <ResizablePanel id="workspace" minSize="24%" maxSize="75%" defaultSize={`${workspaceSize}%`}>
                     <Suspense fallback={null}>
                       <WorkspacePanel
                         projectId={activeProject.id}

@@ -25,6 +25,11 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
   const [copied, setCopied] = useState(false)
   const editorTheme = useMemo(() => createEditorTheme(resolvedTheme === "dark"), [resolvedTheme])
 
+  // Don't carry the "copied" checkmark over to a different file.
+  useEffect(() => {
+    setCopied(false)
+  }, [path])
+
   useEffect(() => {
     setLanguageExtensions([])
     if (!path || file.data?.binary) return
@@ -109,7 +114,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
         <ViewerStatus>Binary file not shown</ViewerStatus>
       ) : (
         <CodeMirror
-          key={`${resolvedTheme}:${content?.path ?? path}`}
+          key={content?.path ?? path}
           value={content?.content ?? ""}
           height="100%"
           className="h-full min-h-0 flex-1 overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"

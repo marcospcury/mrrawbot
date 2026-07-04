@@ -43,6 +43,8 @@ export function ThemeProvider({
       setResolvedTheme(next)
     }
     apply()
+    // Keep the desktop shell's native chrome in step with the app theme.
+    window.mrrawbot?.setNativeTheme?.(theme)
     if (theme === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)")
       mq.addEventListener("change", apply)

@@ -159,6 +159,11 @@
   .drag-region {
     -webkit-app-region: drag;
   }
+  /* Interactive elements that overlap a drag strip (resize handles span the
+     full window height) must opt out, or the OS steals their pointer events. */
+  .app-no-drag {
+    -webkit-app-region: no-drag;
+  }
 
   /* ---- Native desktop (Electron) frameless title bar integration ---- */
   /* Reserve space at the top of the app's header strips for the OS window
@@ -202,6 +207,20 @@
   /* Interactive controls inside the drag strip must stay clickable. */
   .is-electron .mrr-header :where(button, a, input, textarea, label, [role="button"], [role="combobox"]) {
     -webkit-app-region: no-drag;
+  }
+  /* macOS fullscreen hides the traffic lights: drop the reserved title-bar
+     space and the collapsed-sidebar inset so headers don't float in a void. */
+  .is-electron.is-mac.is-fullscreen {
+    --mrr-titlebar-h: 0px;
+  }
+  .is-electron.is-mac.is-fullscreen [data-slot="sidebar-header"].mrr-header {
+    padding-top: 0.5rem;
+  }
+  .is-electron.is-mac.is-fullscreen
+    [data-slot="sidebar"][data-state="collapsed"]
+    ~ [data-slot="sidebar-inset"]
+    header.mrr-header {
+    padding-left: 0.75rem;
   }
 
   /* Subtle entrance used by streaming chat surfaces. */
@@ -360,10 +379,20 @@ cpk-web-inspector,
 }
 
 /* While dragging the sidebar resize handle, let the width track the cursor
-   instead of easing through the sidebar's open/close transition. */
+   instead of easing through the sidebar's open/close transition. Keep the
+   col-resize cursor everywhere and suppress text selection for the duration
+   so the drag never flickers or highlights content it passes over. */
 [data-sidebar-resizing] [data-slot="sidebar-container"],
 [data-sidebar-resizing] [data-slot="sidebar-gap"] {
   transition: none !important;
+}
+[data-sidebar-resizing] {
+  cursor: col-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+[data-sidebar-resizing] * {
+  cursor: col-resize !important;
 }
 
 /* Artifact document viewer (specs / build prompts in the Artifacts tab).

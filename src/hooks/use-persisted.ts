@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
-/** useState backed by localStorage (JSON-serialized). */
-export function usePersisted<T>(key: string, initial: T): [T, (value: T) => void] {
+/** useState backed by localStorage (JSON-serialized). Supports updater functions. */
+export function usePersisted<T>(key: string, initial: T): [T, (value: T | ((prev: T) => T)) => void] {
   const [value, setValue] = useState<T>(() => {
     try {
       const raw = localStorage.getItem(key)
@@ -19,6 +19,6 @@ export function usePersisted<T>(key: string, initial: T): [T, (value: T) => void
     }
   }, [key, value])
 
-  const set = useCallback((v: T) => setValue(v), [])
+  const set = useCallback((v: T | ((prev: T) => T)) => setValue(v), [])
   return [value, set]
 }

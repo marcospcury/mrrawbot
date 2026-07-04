@@ -17,6 +17,12 @@ function tagPlatform() {
 tagPlatform()
 document.addEventListener("DOMContentLoaded", tagPlatform)
 
+// macOS fullscreen hides the traffic lights — mirror that to a CSS class so
+// the header strips can drop the space they reserve for them.
+ipcRenderer.on("mrrawbot:fullscreen", (_event, isFullscreen) => {
+  document.documentElement?.classList.toggle("is-fullscreen", !!isFullscreen)
+})
+
 try {
   contextBridge.exposeInMainWorld("mrrawbot", {
     isElectron: true,
@@ -24,6 +30,8 @@ try {
     // Open a server-relative path (e.g. /api/projects/:id/preview/...) in the
     // in-app prototype browser window.
     openPreview: (path) => ipcRenderer.invoke("mrrawbot:open-preview", path),
+    // Keep native chrome (menus, dialogs, title-bar overlay) matching the app theme.
+    setNativeTheme: (theme) => ipcRenderer.send("mrrawbot:set-theme", theme),
   })
 } catch {
   /* contextBridge unavailable — DOM tagging above is enough */

@@ -8,6 +8,7 @@ declare global {
       isElectron: boolean
       platform: string
       openPreview?: (path: string) => Promise<void>
+      setNativeTheme?: (theme: "dark" | "light" | "system") => void
     }
   }
 }
