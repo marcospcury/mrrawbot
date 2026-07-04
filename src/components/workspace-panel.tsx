@@ -65,7 +65,7 @@ export function WorkspacePanel({
         </div>
       ) : (
         <Tabs value={tab} onValueChange={(v) => onTabChange(v as WorkspaceTab)} className="flex h-full min-h-0 flex-col gap-0">
-          <div className="mrr-header flex min-h-12 shrink-0 items-center border-b px-3">
+          <header className="mrr-header flex min-h-12 shrink-0 items-center border-b px-3">
             <TabsList className="h-8">
               <TabsTrigger value="files" className="gap-1.5">
                 <FolderTree className="size-4" />
@@ -86,7 +86,7 @@ export function WorkspacePanel({
                 )}
               </TabsTrigger>
             </TabsList>
-          </div>
+          </header>
 
           <TabsContent value="files" className="min-h-0 overflow-hidden">
             {selectedPath ? (

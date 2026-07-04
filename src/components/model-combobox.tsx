@@ -69,7 +69,7 @@ export function ModelCombobox({
         >
           <span className="flex min-w-0 items-center gap-1.5">
             {selectedProvider && <span className={cn("size-2 shrink-0 rounded-full", PROVIDER_DOT[selectedProvider])} />}
-            <span className="truncate">{value ? shortModelName(value) : placeholder}</span>
+            <span className={cn("truncate", compact && "mrr-pill-label")}>{value ? shortModelName(value) : placeholder}</span>
           </span>
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </Button>

@@ -139,7 +139,7 @@ export function Composer({
                   title="Fast service tier"
                 >
                   <Zap className="size-3" />
-                  Fast
+                  <span className="mrr-pill-label">Fast</span>
                 </Button>
               )}
               <RolePill role={run.active.role} onRole={run.setRole} />
@@ -184,13 +184,13 @@ function ModeToggle({
             aria-pressed={!flowActive}
             onClick={onSingle}
             className={cn(
-              "inline-flex size-6 items-center justify-center rounded-full transition-colors",
+              "inline-flex size-5 items-center justify-center rounded-full transition-colors",
               !flowActive
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Zap className="size-3.5" />
+            <Zap className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent>Single agent</TooltipContent>
@@ -203,13 +203,13 @@ function ModeToggle({
             aria-pressed={flowActive}
             onClick={onFlow}
             className={cn(
-              "inline-flex size-6 items-center justify-center rounded-full transition-colors",
+              "inline-flex size-5 items-center justify-center rounded-full transition-colors",
               flowActive
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Workflow className="size-3.5" />
+            <Workflow className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent>Flow</TooltipContent>
@@ -234,10 +234,10 @@ function FlowPicker({
           type="button"
           variant="outline"
           size="xs"
-          className="min-w-[13rem] max-w-[24rem] justify-start rounded-full text-[11px]"
+          className="mrr-flow-pill min-w-[13rem] max-w-[24rem] justify-start rounded-full text-[11px]"
         >
           <Workflow className="size-3" />
-          <span className="min-w-0 flex-1 truncate text-left">{run.flow?.name ?? "Select flow"}</span>
+          <span className="mrr-pill-label min-w-0 flex-1 truncate text-left">{run.flow?.name ?? "Select flow"}</span>
           <ChevronDown className="size-3 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
@@ -286,7 +286,7 @@ function EffortPill({
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="xs" className="rounded-full text-[11px]" title="Reasoning effort">
           <Brain className="size-3" />
-          <span>{label}</span>
+          <span className="mrr-pill-label">{label}</span>
           <ChevronDown className="size-3 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
@@ -310,7 +310,7 @@ function RolePill({ role, onRole }: { role: string; onRole: (role: string) => vo
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="xs" className="rounded-full text-[11px]" title="Agent role">
           <Bot className="size-3" />
-          <span className="max-w-[12ch] truncate">{roleName(role)}</span>
+          <span className="mrr-pill-label max-w-[12ch] truncate">{roleName(role)}</span>
           <ChevronDown className="size-3 text-muted-foreground" />
         </Button>
       </PopoverTrigger>

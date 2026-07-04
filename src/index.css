@@ -314,6 +314,19 @@ cpk-web-inspector,
   margin-left: auto;
   flex-shrink: 0;
 }
+/* When the composer gets squeezed, drop the pill labels so the dropdowns
+   collapse to icons and the send button stays in view. */
+.mrr-chat .copilotKitInputContainer {
+  container-type: inline-size;
+}
+@container (max-width: 34rem) {
+  .mrr-composer-controls .mrr-pill-label {
+    display: none;
+  }
+  .mrr-composer-controls .mrr-flow-pill {
+    min-width: 0;
+  }
+}
 /* What makes a reply feel packed isn't the paragraphs (already line-height 1.75)
    — it's tables and lists. CopilotKit ships no table styling at all, so cells
    render with the browser's zero padding and rows jam together; list items get
