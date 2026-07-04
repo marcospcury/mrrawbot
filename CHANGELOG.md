@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/marcospcury/mrrawbot/compare/v1.2.1...v1.3.0) (2026-07-04)
+
+
+### Features
+
+* Product Design sessions with app-internal artifacts ([#7](https://github.com/marcospcury/mrrawbot/issues/7)) ([db8ed17](https://github.com/marcospcury/mrrawbot/commit/db8ed17fafe446e8b94fc9cbbfedf891bf7ea922))
+
 ## [1.2.1](https://github.com/marcospcury/mrrawbot/compare/v1.2.0...v1.2.1) (2026-07-04)
 
 
