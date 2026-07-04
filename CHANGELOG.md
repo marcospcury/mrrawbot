@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/marcospcury/mrrawbot/compare/v1.2.0...v1.2.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* composer squeeze behavior and workspace header padding ([969e8ff](https://github.com/marcospcury/mrrawbot/commit/969e8ffa99584c201f2608c54b150a2c8d0f2fc0))
+
 ## [1.2.0](https://github.com/marcospcury/mrrawbot/compare/v1.1.1...v1.2.0) (2026-07-03)
 
 
