@@ -9,6 +9,10 @@ Durable requirements from the owner. Do not regress these, even if a summary los
 - **Repo discovery must skip virtual/VM mounts** (OrbStack, containers, etc.) — never scan those.
 - **Build the whole scope; no MVPs.** Have good taste in the UI; the Electron app should feel like a real native app, not a browser shell.
 
+## Commit messages / PR titles
+- **Conventional Commits, always** — for every commit message and every PR title (PRs are squash-merged, so the title becomes the commit on main). release-please reads these to open release PRs; unprefixed commits are invisible to it and never ship.
+- Use `feat:` (minor bump), `fix:` (patch bump), `feat!:`/`fix!:` or a `BREAKING CHANGE:` footer (major bump). Non-release changes use `chore:`, `docs:`, `refactor:`, `test:`, `ci:`.
+
 ## Stack / commands
 - Single ESM Node package. Express backend (`tsx`) + Vite/React 19 frontend; Electron wraps it.
 - `npm run dev` (web), `npm run app` (Electron), `npm run typecheck`, `npm test`.
