@@ -35,7 +35,7 @@ export function openPreview(projectId: string, filePath: string): void {
  */
 export function designPreviewUrl(projectId: string, slug: string, page = ""): string {
   const encodedPage = page ? page.split("/").map(encodeURIComponent).join("/") : ""
-  return `/api/projects/${projectId}/designs/${encodeURIComponent(slug)}/preview/${encodedPage}`
+  return `/api/projects/${projectId}/artifacts/${encodeURIComponent(slug)}/preview/${encodedPage}`
 }
 
 /** Pop a design page out of the embedded browser: Electron window, or a new tab on the web. */
