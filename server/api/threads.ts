@@ -5,6 +5,7 @@ import { getProject } from "../db/repos/projects.ts"
 import { listThreadChanges } from "../db/repos/changes.ts"
 import { listMessages, clearMessages } from "../db/repos/messages.ts"
 import { listRunsByThread } from "../db/repos/runs.ts"
+import { getFolder } from "../db/repos/folders.ts"
 import {
   createThread,
   deleteThread,
@@ -12,7 +13,9 @@ import {
   listThreads,
   renameThread,
   setThreadArchived,
+  setThreadBranch,
   setThreadFlow,
+  setThreadFolder,
   setThreadSession,
 } from "../db/repos/threads.ts"
 import { asyncHandler, HttpError, parseBody, required } from "./_util.ts"
@@ -39,6 +42,8 @@ const patchSchema = z.object({
   archived: z.boolean().optional(),
   flowId: z.string().nullable().optional(),
   session: sessionSchema.nullable().optional(),
+  branchName: z.string().nullable().optional(),
+  folderId: z.string().nullable().optional(),
 })
 
 // Threads scoped under a project.
@@ -90,6 +95,14 @@ threadsRouter.patch(
     if (input.archived !== undefined) thread = setThreadArchived(thread.id, input.archived)!
     if (input.flowId !== undefined) thread = setThreadFlow(thread.id, input.flowId)!
     if (input.session !== undefined) thread = setThreadSession(thread.id, input.session as SessionConfig | null)!
+    if (input.branchName !== undefined) thread = setThreadBranch(thread.id, input.branchName)!
+    if (input.folderId !== undefined) {
+      if (input.folderId !== null) {
+        const folder = required(getFolder(input.folderId), "Folder not found")
+        if (folder.projectId !== thread.projectId) throw new HttpError(400, "Folder belongs to another project")
+      }
+      thread = setThreadFolder(thread.id, input.folderId)!
+    }
     res.json(thread)
   }),
 )

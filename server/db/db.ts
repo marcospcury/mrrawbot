@@ -163,6 +163,21 @@ const migrations: string[] = [
     PRIMARY KEY (thread_id, artifact_id)
   ) STRICT;
   `,
+  // ---- v9: sidebar organization — thread↔branch link and thread folders ----
+  `
+  ALTER TABLE threads ADD COLUMN branch_name TEXT;
+
+  CREATE TABLE thread_folders (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  ) STRICT;
+  CREATE INDEX idx_thread_folders_project ON thread_folders(project_id, name);
+
+  ALTER TABLE threads ADD COLUMN folder_id TEXT REFERENCES thread_folders(id) ON DELETE SET NULL;
+  `,
 ]
 
 export function migrate(database: DB = db): void {

@@ -1,21 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ChangeEvent, ReactNode } from "react"
-import {
-  Bot,
-  Brain,
-  Check,
-  ChevronDown,
-  FileText,
-  Plus,
-  Paperclip,
-  PenTool,
-  Settings2,
-  Terminal,
-  Users,
-  Workflow,
-  X,
-  Zap,
-} from "lucide-react"
+import { Check, ChevronDown, FileText, Flash2, Hierarchy2, Paperclip, PenTool2, Plus, Settings2, TerminalSquare, Users, X } from "reicon-react"
+import { Bot, Brain } from "lucide-react"
 import { useChatContext } from "@copilotkit/react-ui"
 import {
   BUILD_ROLES,
@@ -281,7 +267,7 @@ export function Composer({
                   )}
                   title="Fast service tier"
                 >
-                  <Zap className="size-3" />
+                  <Flash2 className="size-3" />
                   <span className="mrr-pill-label">Fast</span>
                 </Button>
               )}
@@ -534,7 +520,7 @@ function ModeToggle({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Zap className="size-3" />
+            <Flash2 className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent>Single agent</TooltipContent>
@@ -553,7 +539,7 @@ function ModeToggle({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Workflow className="size-3" />
+            <Hierarchy2 className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent>Flow</TooltipContent>
@@ -580,7 +566,7 @@ function FlowPicker({
           size="xs"
           className="mrr-flow-pill min-w-[13rem] max-w-[24rem] justify-start rounded-full text-[11px]"
         >
-          <Workflow className="size-3" />
+          <Hierarchy2 className="size-3" />
           <span className="mrr-pill-label min-w-0 flex-1 truncate text-left">{run.flow?.name ?? "Select flow"}</span>
           <ChevronDown className="size-3 text-muted-foreground" />
         </Button>
@@ -589,7 +575,7 @@ function FlowPicker({
         {flows.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Flows</DropdownMenuLabel>}
         {flows.map((flow) => (
           <DropdownMenuItem key={flow.id} onClick={() => run.selectFlow(flow.id)} className="gap-2">
-            <Workflow className="size-4 text-muted-foreground" />
+            <Hierarchy2 className="size-4 text-muted-foreground" />
             <span className="truncate">{flow.name}</span>
             {run.flow?.id === flow.id && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
           </DropdownMenuItem>
@@ -691,7 +677,7 @@ function PersonaPill({
   )
 }
 
-const ARTIFACT_ICONS = { spec: FileText, prototype: PenTool, prompt: Terminal } as const
+const ARTIFACT_ICONS = { spec: FileText, prototype: PenTool2, prompt: TerminalSquare } as const
 
 function AttachArtifactsPill({ thread }: { thread: Thread }) {
   const artifacts = useProjectArtifacts(thread.projectId)

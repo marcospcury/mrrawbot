@@ -2,19 +2,23 @@ import { useMemo, useState } from "react"
 import { unifiedMergeView } from "@codemirror/merge"
 import type { Extension } from "@codemirror/state"
 import CodeMirror from "@uiw/react-codemirror"
-import { Loader2, TriangleAlert } from "lucide-react"
+import { AlertTriangle, Loader } from "reicon-react"
 import type { ThreadChange, ThreadChangeStatus } from "@shared/types"
-import { useTheme } from "@/components/theme-provider"
 import { Badge } from "@/components/ui/badge"
-import { createEditorTheme } from "@/lib/codemirror-theme"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { editorChrome, useEditorTheme } from "@/lib/editor-themes"
 import { useThreadChanges } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 interface ChangesViewProps {
   threadId: string
+  /** "list" is the side panel's accordion; "split" puts a tree of changed
+      files on the left and the selected diff on the right (main view). */
+  layout?: "list" | "split"
 }
 
-export function ChangesView({ threadId }: ChangesViewProps) {
+export function ChangesView({ threadId, layout = "list" }: ChangesViewProps) {
   // Changes are persisted only when a run finishes, and run completion already
   // invalidates this query (chat-panel's refreshThreadChanges) — the interval
   // is just a slow safety net, not the delivery mechanism. The payload carries
@@ -22,9 +26,11 @@ export function ChangesView({ threadId }: ChangesViewProps) {
   const changes = useThreadChanges(threadId, 30_000)
   const groups = useMemo(() => groupChangesByRun(changes.data ?? []), [changes.data])
 
-  if (changes.isLoading) return <ChangesStatus icon={<Loader2 className="size-4 animate-spin" />}>Loading changes…</ChangesStatus>
-  if (changes.isError) return <ChangesStatus icon={<TriangleAlert className="size-4" />}>Unable to load changes</ChangesStatus>
+  if (changes.isLoading) return <ChangesStatus icon={<Loader className="size-4 animate-spin" />}>Loading changes…</ChangesStatus>
+  if (changes.isError) return <ChangesStatus icon={<AlertTriangle className="size-4" />}>Unable to load changes</ChangesStatus>
   if (groups.length === 0) return <ChangesStatus>No changes in this thread yet</ChangesStatus>
+
+  if (layout === "split") return <ChangesSplit groups={groups} />
 
   return (
     <div className="p-2">
@@ -43,6 +49,103 @@ export function ChangesView({ threadId }: ChangesViewProps) {
           </section>
         ))}
       </div>
+    </div>
+  )
+}
+
+function ChangesSplit({ groups }: { groups: ReturnType<typeof groupChangesByRun> }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const allChanges = groups.flatMap((group) => group.changes)
+  // Falling back to the first change keeps the pane populated when the
+  // selection disappears (e.g. the run list refreshed).
+  const selected = allChanges.find((change) => change.id === selectedId) ?? allChanges[0] ?? null
+
+  return (
+    <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0">
+      {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
+      <ResizablePanel id="changes-tree" minSize="15%" defaultSize="26%">
+        <ScrollArea className="h-full">
+          <div className="space-y-3 p-2">
+            {groups.map((group) => (
+              <section key={group.runId ?? "unknown"} className="space-y-0.5">
+                <h3 className="px-2 pb-0.5 pt-1 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Run</span>{" "}
+                  <span className="font-mono">{group.runId ?? "unknown"}</span>
+                </h3>
+                {group.changes.map((change) => (
+                  <ChangeTreeRow
+                    key={change.id}
+                    change={change}
+                    selected={selected?.id === change.id}
+                    onSelect={() => setSelectedId(change.id)}
+                  />
+                ))}
+              </section>
+            ))}
+          </div>
+        </ScrollArea>
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel id="changes-diff" minSize="30%" defaultSize="74%">
+        {selected ? (
+          <DiffPane key={selected.id} change={selected} />
+        ) : (
+          <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+            Select a change to see its diff.
+          </div>
+        )}
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  )
+}
+
+function ChangeTreeRow({ change, selected, onSelect }: { change: ThreadChange; selected: boolean; onSelect: () => void }) {
+  const meta = changeStatusMeta(change.changeStatus)
+  const slash = change.filePath.lastIndexOf("/")
+  const name = slash === -1 ? change.filePath : change.filePath.slice(slash + 1)
+  const dir = slash === -1 ? null : change.filePath.slice(0, slash)
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex h-7 w-full min-w-0 items-center gap-1.5 rounded-md px-2 text-left transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+        selected && "bg-accent",
+      )}
+      title={change.filePath}
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
+      <span
+        className={cn("flex size-4 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-semibold", meta.className)}
+        title={meta.label}
+      >
+        {meta.glyph}
+      </span>
+      <span className={cn("truncate font-mono text-xs", selected && "font-semibold")}>{name}</span>
+      {dir && <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{dir}</span>}
+    </button>
+  )
+}
+
+function DiffPane({ change }: { change: ThreadChange }) {
+  const meta = changeStatusMeta(change.changeStatus)
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+        <span
+          className={cn("flex size-5 shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold", meta.className)}
+          title={meta.label}
+        >
+          {meta.glyph}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={change.filePath}>
+          {change.filePath}
+        </span>
+        <ChangeBadges change={change} />
+      </div>
+      <InlineDiff change={change} fill />
     </div>
   )
 }
@@ -94,9 +197,8 @@ function ChangeBadges({ change }: { change: ThreadChange }) {
   )
 }
 
-function InlineDiff({ change }: { change: ThreadChange }) {
-  const { resolvedTheme } = useTheme()
-  const editorTheme = useMemo(() => createEditorTheme(resolvedTheme === "dark"), [resolvedTheme])
+function InlineDiff({ change, fill = false }: { change: ThreadChange; fill?: boolean }) {
+  const editorTheme = useEditorTheme()
   const diff = useMemo(() => createDiff(change), [change])
   const extensions = useMemo<Extension[]>(
     () => [
@@ -107,22 +209,34 @@ function InlineDiff({ change }: { change: ThreadChange }) {
         highlightChanges: true,
         collapseUnchanged: { margin: 3, minSize: 8 },
       }),
+      editorChrome,
     ],
     [diff.original],
   )
 
   if (change.binary) {
-    return <DiffStatus>Binary file not shown</DiffStatus>
+    return fill ? (
+      <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
+        Binary file not shown
+      </div>
+    ) : (
+      <DiffStatus>Binary file not shown</DiffStatus>
+    )
   }
 
   return (
-    <div className="border-t bg-background">
-      {diff.note ? <div className="border-b px-3 py-2 text-xs text-muted-foreground">{diff.note}</div> : null}
+    <div className={cn("bg-background", fill ? "flex min-h-0 flex-1 flex-col" : "border-t")}>
+      {diff.note ? <div className="shrink-0 border-b px-3 py-2 text-xs text-muted-foreground">{diff.note}</div> : null}
       <CodeMirror
         key={`${change.id}:${change.createdAt}`}
         value={diff.modified}
-        maxHeight="28rem"
-        className="max-h-[28rem] overflow-hidden text-xs [&_.cm-editor]:max-h-[28rem] [&_.cm-scroller]:overflow-auto"
+        {...(fill ? { height: "100%" } : { maxHeight: "28rem" })}
+        className={cn(
+          "overflow-hidden text-xs [&_.cm-scroller]:overflow-auto",
+          fill
+            ? "min-h-0 flex-1 [&_.cm-editor]:h-full"
+            : "max-h-[28rem] [&_.cm-editor]:max-h-[28rem]",
+        )}
         basicSetup={{ lineNumbers: true }}
         readOnly
         editable={false}

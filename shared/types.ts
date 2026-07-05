@@ -187,6 +187,16 @@ export interface ProjectGitStatus {
   } | null
 }
 
+/** Lightweight status of one branch, used to decorate thread rows in the sidebar. */
+export interface ProjectBranchStatus {
+  name: string
+  isCurrent: boolean
+  isDefault: boolean
+  /** Whether the branch still exists locally (false: PR-only, e.g. deleted after merge). */
+  exists: boolean
+  pullRequest: PullRequestSummary | null
+}
+
 export type GitHubMergeMethod = "merge" | "squash" | "rebase"
 
 export interface GitHubStatusRow {
@@ -411,10 +421,23 @@ export interface Thread {
   flowId: string | null
   /** Single-agent config used when `flowId` is null (quick-run mode). */
   session: SessionConfig | null
+  /** Git branch this thread works on (recorded when created via the git dialog). */
+  branchName: string | null
+  /** Sidebar folder the thread is grouped under, or null for the top level. */
+  folderId: string | null
   /** Timestamp when a title was first auto-generated. Presence means auto-naming is locked. */
   autoTitleGeneratedAt: string | null
   /** Whether the user has explicitly edited the title at least once. */
   titleManuallyEdited: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** A user-created sidebar folder for grouping related threads. */
+export interface ThreadFolder {
+  id: string
+  projectId: string
+  name: string
   createdAt: string
   updatedAt: string
 }

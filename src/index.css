@@ -80,40 +80,48 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  /* Hyperlinks in rendered markdown. The zinc --primary is too close to plain
+     text to read as a link, so links get their own blue accent. */
+  --mrr-link: oklch(0.546 0.215 262.881);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  /* UI backgrounds sit on a dark-gray ramp, never near-black: base zinc-900,
+     with sidebar and cards stepping lighter for hierarchy. Pitch black is
+     reserved for content (buttons, icons, text), not surfaces. Keep the base
+     in sync with the Electron window backgroundColor in electron/main.cjs. */
+  --background: oklch(0.21 0.006 285.885);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.006 285.885);
+  --card: oklch(0.25 0.006 285.885);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0.006 285.885);
+  --popover: oklch(0.25 0.006 285.885);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.92 0.004 286.32);
   --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
+  --secondary: oklch(0.31 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
+  --muted: oklch(0.31 0.006 286.033);
   --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
+  --accent: oklch(0.31 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.552 0.016 285.938);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.16 0.006 285.885);
+  --sidebar: oklch(0.23 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.92 0.004 286.32);
   --sidebar-primary-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent: oklch(0.31 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  --mrr-link: oklch(0.707 0.165 254.624);
 }
 
 @layer base {
@@ -271,18 +279,17 @@ cpk-web-inspector,
 }
 /* CopilotKit has no typography variables (its --copilot-kit-* set is colors and
    shadows only), and it hardcodes mismatched body sizes. Set one base size on
-   the message and make body-level text inherit it, while keeping inline code a
-   touch smaller so it does not visually overpower surrounding prose. Headings
-   keep their em scale, which now scales off this same base. */
+   the message; the shared .mrr-markdown rules below make body-level text
+   inherit it. Headings keep their em scale, which scales off this same base. */
 .mrr-chat .copilotKitMessages .copilotKitMessage {
   font-size: 0.875rem;
 }
-.mrr-chat .copilotKitParagraph,
-.mrr-chat li.copilotKitMarkdownElement {
-  font-size: inherit;
-}
-.mrr-chat .copilotKitInlineCode {
-  font-size: 0.8125rem;
+/* CopilotKit paints the user bubble with the primary color — near-black in
+   light mode. Chat bubbles are UI surfaces, so they get a quiet gray step off
+   the background instead, in both themes. */
+.mrr-chat .copilotKitMessage.copilotKitUserMessage {
+  background: color-mix(in oklch, var(--foreground) 8%, var(--background));
+  color: var(--foreground);
 }
 .mrr-chat .copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
   padding-top: 0.75rem;
@@ -346,36 +353,72 @@ cpk-web-inspector,
     min-width: 0;
   }
 }
-/* What makes a reply feel packed isn't the paragraphs (already line-height 1.75)
-   — it's tables and lists. CopilotKit ships no table styling at all, so cells
-   render with the browser's zero padding and rows jam together; list items get
-   no gap between them either. Give cells modest padding with faint row dividers,
-   and a small gap between list items. Paragraph rhythm is left untouched. */
-.mrr-chat .copilotKitMarkdown table {
+/* ---- Shared markdown treatment (.mrr-markdown) ----
+   One set of typography rules for every surface that renders markdown through
+   CopilotKit's renderer: chat messages, artifact docs, and .md file previews.
+   Each surface sets its own base font-size; everything here scales off it.
+
+   Body text inherits the base size, inline code sits a touch smaller so it
+   doesn't overpower prose. CopilotKit ships no table styling at all (cells get
+   the browser's zero padding and rows jam together) and no gap between list
+   items, so both get modest spacing. Links get the app's link accent instead
+   of the browser default, with an ↗ hint on external URLs. */
+.mrr-markdown .copilotKitParagraph,
+.mrr-markdown li.copilotKitMarkdownElement {
+  font-size: inherit;
+}
+.mrr-markdown .copilotKitInlineCode {
+  font-size: 0.8125rem;
+}
+.mrr-markdown .copilotKitMarkdown table {
   border-collapse: collapse;
   margin-bottom: 1.25em;
 }
-.mrr-chat .copilotKitMarkdown th,
-.mrr-chat .copilotKitMarkdown td {
+.mrr-markdown .copilotKitMarkdown th,
+.mrr-markdown .copilotKitMarkdown td {
   padding: 0.45rem 1rem;
   text-align: left;
   vertical-align: top;
   line-height: 1.55;
   border-bottom: 1px solid var(--border);
 }
-.mrr-chat .copilotKitMarkdown th:first-child,
-.mrr-chat .copilotKitMarkdown td:first-child {
+.mrr-markdown .copilotKitMarkdown th:first-child,
+.mrr-markdown .copilotKitMarkdown td:first-child {
   padding-left: 0;
 }
-.mrr-chat .copilotKitMarkdown th:last-child,
-.mrr-chat .copilotKitMarkdown td:last-child {
+.mrr-markdown .copilotKitMarkdown th:last-child,
+.mrr-markdown .copilotKitMarkdown td:last-child {
   padding-right: 0;
 }
-.mrr-chat li.copilotKitMarkdownElement {
+.mrr-markdown li.copilotKitMarkdownElement {
   line-height: 1.6;
 }
-.mrr-chat li.copilotKitMarkdownElement:not(:last-child) {
+.mrr-markdown li.copilotKitMarkdownElement:not(:last-child) {
   margin-bottom: 0.375rem;
+}
+/* Bare URLs render as .mrr-link-chip pills (see markdown-link.tsx), which
+   carry their own look — the inline-link treatment applies to labeled links. */
+.mrr-markdown .copilotKitMarkdown a:not(.mrr-link-chip) {
+  color: var(--mrr-link);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklch, var(--mrr-link) 35%, transparent);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  transition: text-decoration-color 120ms ease;
+}
+.mrr-markdown .copilotKitMarkdown a:not(.mrr-link-chip):hover {
+  text-decoration-color: var(--mrr-link);
+}
+.mrr-markdown .copilotKitMarkdown a[href^="http"]:not(.mrr-link-chip)::after {
+  content: "\2197";
+  display: inline-block;
+  margin-left: 0.15em;
+  font-size: 0.7em;
+  vertical-align: 0.2em;
+  opacity: 0.65;
+  text-decoration: none;
 }
 
 /* While dragging the sidebar resize handle, let the width track the cursor
@@ -395,36 +438,10 @@ cpk-web-inspector,
   cursor: col-resize !important;
 }
 
-/* Artifact document viewer (specs / build prompts in the Artifacts tab).
-   Reuses CopilotKit's markdown renderer outside the chat, so it needs the
-   same table/list fixes the chat applies, at a document-reading size. */
-.mrr-artifact-doc {
+/* Markdown rendered as a standalone document (artifact specs / build prompts,
+   .md file previews). Pairs with .mrr-markdown, which carries the shared
+   typography; this just sets the document-reading base size. */
+.mrr-doc {
   font-size: 0.875rem;
   line-height: 1.7;
-}
-.mrr-artifact-doc .copilotKitMarkdown table {
-  border-collapse: collapse;
-  margin-bottom: 1.25em;
-}
-.mrr-artifact-doc .copilotKitMarkdown th,
-.mrr-artifact-doc .copilotKitMarkdown td {
-  padding: 0.45rem 1rem;
-  text-align: left;
-  vertical-align: top;
-  line-height: 1.55;
-  border-bottom: 1px solid var(--border);
-}
-.mrr-artifact-doc .copilotKitMarkdown th:first-child,
-.mrr-artifact-doc .copilotKitMarkdown td:first-child {
-  padding-left: 0;
-}
-.mrr-artifact-doc .copilotKitMarkdown th:last-child,
-.mrr-artifact-doc .copilotKitMarkdown td:last-child {
-  padding-right: 0;
-}
-.mrr-artifact-doc li.copilotKitMarkdownElement {
-  line-height: 1.6;
-}
-.mrr-artifact-doc li.copilotKitMarkdownElement:not(:last-child) {
-  margin-bottom: 0.375rem;
 }

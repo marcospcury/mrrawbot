@@ -1,4 +1,5 @@
-import { Bot, FolderGit2, MessageSquarePlus } from "lucide-react"
+import { ChatPlus } from "reicon-react"
+import { Bot, FolderGit2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
@@ -33,7 +34,7 @@ export function WelcomeScreen({
               <div className="mt-6 flex gap-2">
                 {onNewThread && (
                   <Button onClick={onNewThread}>
-                    <MessageSquarePlus className="size-4" />
+                    <ChatPlus className="size-4" />
                     New thread
                   </Button>
                 )}

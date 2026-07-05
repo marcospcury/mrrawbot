@@ -9,6 +9,8 @@ interface ThreadRow {
   kind: ThreadKind
   flow_id: string | null
   session: string | null
+  branch_name: string | null
+  folder_id: string | null
   auto_title_generated_at: string | null
   title_manually_edited: 0 | 1
   created_at: string
@@ -34,6 +36,8 @@ function hydrate(r: ThreadRow): Thread {
     kind: r.kind,
     flowId: r.flow_id,
     session: parseSession(r.session),
+    branchName: r.branch_name,
+    folderId: r.folder_id,
     autoTitleGeneratedAt: r.auto_title_generated_at,
     titleManuallyEdited: r.title_manually_edited === 1,
     createdAt: r.created_at,
@@ -86,6 +90,12 @@ const stmts = {
   ),
   setSession: db.prepare<{ id: string; session: string | null; updated_at: string }, ThreadRow>(
     `UPDATE threads SET session = :session, updated_at = :updated_at WHERE id = :id RETURNING *`,
+  ),
+  setBranch: db.prepare<{ id: string; branch_name: string | null; updated_at: string }, ThreadRow>(
+    `UPDATE threads SET branch_name = :branch_name, updated_at = :updated_at WHERE id = :id RETURNING *`,
+  ),
+  setFolder: db.prepare<{ id: string; folder_id: string | null; updated_at: string }, ThreadRow>(
+    `UPDATE threads SET folder_id = :folder_id, updated_at = :updated_at WHERE id = :id RETURNING *`,
   ),
   touch: db.prepare<{ id: string; updated_at: string }>(
     `UPDATE threads SET updated_at = :updated_at WHERE id = :id`,
@@ -154,6 +164,16 @@ export function setThreadFlow(id: string, flowId: string | null): Thread | undef
 
 export function setThreadSession(id: string, session: SessionConfig | null): Thread | undefined {
   const r = stmts.setSession.get({ id, session: session ? JSON.stringify(session) : null, updated_at: now() })
+  return r && hydrate(r)
+}
+
+export function setThreadBranch(id: string, branchName: string | null): Thread | undefined {
+  const r = stmts.setBranch.get({ id, branch_name: branchName?.trim() || null, updated_at: now() })
+  return r && hydrate(r)
+}
+
+export function setThreadFolder(id: string, folderId: string | null): Thread | undefined {
+  const r = stmts.setFolder.get({ id, folder_id: folderId, updated_at: now() })
   return r && hydrate(r)
 }
 

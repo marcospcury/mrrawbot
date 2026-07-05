@@ -10,6 +10,7 @@ import type {
   GitHubReviewSummary,
   GitHubStatusRow,
   Project,
+  ProjectBranchStatus,
   ProjectGitRemote,
   ProjectGitStatus,
   ProjectPullRequestDetails,
@@ -394,7 +395,9 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     const startPoint = (await refExists(project.repoPath, `refs/remotes/origin/${defaultBranch}`))
       ? `origin/${defaultBranch}`
       : defaultBranch
-    await runGit(project.repoPath, ["checkout", "-b", branch, startPoint])
+    // --no-track: branching from origin/<default> would otherwise auto-track
+    // origin/<default>, which makes a later plain `git push` refuse to push.
+    await runGit(project.repoPath, ["checkout", "-b", branch, "--no-track", startPoint])
     return getStatus(project, { refresh: true })
   }
 
@@ -434,7 +437,10 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
     if (!status.remote?.url) throw new HttpError(400, "Selected Git repo has no origin remote")
     if (!status.branch || status.branch === "HEAD") throw new HttpError(400, "Cannot push from a detached HEAD")
-    if (status.hasUpstream) {
+    // Plain `git push` only works when the upstream is the same-named branch on
+    // origin; a branch tracking origin/<default> (pre --no-track fix) would
+    // refuse. Push explicitly and (re)point the upstream at origin/<branch>.
+    if (status.hasUpstream && status.upstream === `origin/${status.branch}`) {
       await runGit(project.repoPath, ["push"], GITHUB_TIMEOUT_MS)
     } else {
       await runGit(project.repoPath, ["push", "-u", "origin", `HEAD:refs/heads/${status.branch}`], GITHUB_TIMEOUT_MS)
@@ -469,6 +475,69 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     if (!status.remote?.url) throw new HttpError(400, "Selected Git repo has no origin remote")
     await runGit(project.repoPath, ["pull", "--ff-only", "origin", defaultBranch], GITHUB_TIMEOUT_MS)
     return getStatus(project, { refresh: true })
+  }
+
+  async function pullCurrentBranch(project: Pick<Project, "repoPath">): Promise<ProjectGitStatus> {
+    const context = await getStatusContext(project, { refresh: true })
+    const status = context.status
+    if (!status.isGit) throw new HttpError(400, "Selected folder is not a Git worktree")
+    if (!status.branch || status.branch === "HEAD") throw new HttpError(400, "Cannot pull on a detached HEAD")
+    if (!status.remote?.url) throw new HttpError(400, "Selected Git repo has no origin remote")
+    if (!status.hasUpstream || !status.upstream) throw new HttpError(400, "Current branch has no upstream to pull from")
+    if (status.dirty) throw new HttpError(400, "Commit or discard local changes before pulling")
+    const [remoteName, ...refParts] = status.upstream.split("/")
+    await runGit(project.repoPath, ["pull", "--ff-only", remoteName, refParts.join("/")], GITHUB_TIMEOUT_MS)
+    return getStatus(project, { refresh: true })
+  }
+
+  async function listBranchStatuses(project: Pick<Project, "repoPath">): Promise<ProjectBranchStatus[]> {
+    const projectPath = project.repoPath
+    const inside = await optionalGit(projectPath, ["rev-parse", "--is-inside-work-tree"])
+    if (inside !== "true") return []
+
+    const [branch, remoteUrl, namesRaw, defaultBranch] = await Promise.all([
+      optionalGit(projectPath, ["rev-parse", "--abbrev-ref", "HEAD"]),
+      optionalGit(projectPath, ["config", "--get", "remote.origin.url"]),
+      optionalGit(projectPath, ["for-each-ref", "refs/heads", "--format=%(refname:short)"]),
+      getDefaultBranch(projectPath),
+    ])
+
+    // PR decoration is best-effort: one non-paginated list of the 100 most
+    // recently updated PRs covers every branch this app plausibly created.
+    const prByBranch = new Map<string, PullRequestSummary>()
+    const github = parseGitHubRemote(remoteUrl)
+    if (github) {
+      try {
+        const { client } = await githubContext(github)
+        const prs = await client.rest.pulls.list({
+          owner: github.owner,
+          repo: github.repo,
+          state: "all",
+          sort: "updated",
+          direction: "desc",
+          per_page: 100,
+        })
+        for (const pr of prs.data) {
+          const summary = toPullRequestSummary(pr)
+          const existing = prByBranch.get(summary.headRefName)
+          if (!existing || rankPullRequest(summary) > rankPullRequest(existing)) {
+            prByBranch.set(summary.headRefName, summary)
+          }
+        }
+      } catch {
+        // Sidebar decoration only — local branch info is still useful without it.
+      }
+    }
+
+    const local = new Set((namesRaw?.split("\n") ?? []).map((n) => n.trim()).filter(Boolean))
+    const all = new Set([...local, ...prByBranch.keys()])
+    return [...all].map((name) => ({
+      name,
+      isCurrent: name === branch,
+      isDefault: name === defaultBranch,
+      exists: local.has(name),
+      pullRequest: prByBranch.get(name) ?? null,
+    }))
   }
 
   async function deleteLocalBranch(project: Pick<Project, "repoPath">, name: string): Promise<ProjectGitStatus> {
@@ -569,13 +638,23 @@ export function makeProjectGitService(deps: Partial<ProjectGitDeps> = {}) {
     createBranch,
     commitChanges,
     pushCurrentBranch,
+    pullCurrentBranch,
     checkoutDefaultBranch,
     pullDefaultBranch,
     deleteLocalBranch,
+    listBranchStatuses,
     getPullRequest,
     createPullRequest,
     mergePullRequest,
   }
+}
+
+// Prefer an open PR over a merged one, and merged over closed, when several
+// PRs share a head branch.
+function rankPullRequest(pr: PullRequestSummary): number {
+  if (pr.state === "open") return 3
+  if (pr.merged) return 2
+  return 1
 }
 
 function emptyStatus(projectPath: string): ProjectGitStatus {

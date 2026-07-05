@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Check, FolderGit2, GitBranch, GitFork, Loader2, RefreshCw } from "lucide-react"
+import { Check, Loader, Refresh } from "reicon-react"
+import { FolderGit2, GitBranch, GitFork } from "lucide-react"
 import type { GitRepo, Project } from "@shared/types"
 import {
   Command,
@@ -111,7 +112,7 @@ export function RepoPickerDialog({
               </DialogDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={refresh} disabled={refreshing} className="gap-1.5">
-              <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
+              <Refresh className={cn("size-3.5", refreshing && "animate-spin")} />
               Rescan
             </Button>
           </div>
@@ -121,7 +122,7 @@ export function RepoPickerDialog({
           <CommandList className="max-h-[55vh]">
             {repos.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> Scanning your repositories…
+                <Loader className="size-4 animate-spin" /> Scanning your repositories…
               </div>
             ) : (
               <>
@@ -175,7 +176,7 @@ export function RepoPickerDialog({
             disabled={addingManual || !manualPath.trim()}
             onClick={addManual}
           >
-            {addingManual && <Loader2 className="size-3.5 animate-spin" />}
+            {addingManual && <Loader className="size-3.5 animate-spin" />}
             Add
           </Button>
         </div>
@@ -219,7 +220,7 @@ function RepoItem({
         {repo.dirty && <span className="size-1.5 rounded-full bg-amber-400" title="Uncommitted changes" />}
         {repo.lastCommitAt && <span className="hidden md:inline">{relativeTime(repo.lastCommitAt)}</span>}
         {creating ? (
-          <Loader2 className="size-4 animate-spin" />
+          <Loader className="size-4 animate-spin" />
         ) : added ? (
           <Check className="size-4 text-emerald-400" />
         ) : null}

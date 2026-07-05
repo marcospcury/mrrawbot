@@ -18,9 +18,10 @@ import {
   type SessionConfig,
   type Thread,
 } from "@shared/types"
-import { FolderTree } from "lucide-react"
+import { DiagramTree } from "reicon-react"
 import { AgentRunTimeline } from "@/components/agent-run-timeline"
 import { Composer } from "@/components/composer"
+import { MarkdownLink } from "@/components/markdown-link"
 import { GitHeaderControl } from "@/components/git-header-control"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -202,7 +203,7 @@ export function ChatPanel({
                 aria-pressed={workspaceOpen}
                 onClick={onToggleWorkspace}
               >
-                <FolderTree className="size-4" />
+                <DiagramTree className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{workspaceOpen ? "Hide workspace" : "Show workspace"}</TooltipContent>
@@ -212,7 +213,7 @@ export function ChatPanel({
 
       <div className={cn("relative min-h-0 flex-1")}>
         <CopilotChat
-          className="mrr-chat h-full"
+          className="mrr-chat mrr-markdown h-full"
           labels={{
             placeholder:
               thread.kind === "product-design" ? "Describe the product or feature…" : "Describe a coding task…",
@@ -220,7 +221,7 @@ export function ChatPanel({
           AssistantMessage={(props: AssistantMessageProps) => (
             <>
               {persistedTimelines(props.message?.id, runsByAssistant)}
-              <DefaultAssistantMessage {...props} />
+              <DefaultAssistantMessage {...props} markdownTagRenderers={{ a: MarkdownLink }} />
             </>
           )}
           UserMessage={(props: UserMessageProps) => (
@@ -307,10 +308,12 @@ function EditableTitle({
     )
   }
 
+  // Size the click target to the title text — only the title itself should be
+  // clickable, not the whole empty stretch of header next to it.
   return (
     <button
       onClick={() => setEditing(true)}
-      className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
+      className="min-w-0 max-w-full shrink truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
       title="Click to rename"
     >
       {title}

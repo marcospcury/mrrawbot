@@ -148,7 +148,7 @@ function platformChrome() {
     // Native window-controls overlay so our header doubles as the title bar.
     return {
       titleBarStyle: "hidden",
-      titleBarOverlay: { color: "#09090b", symbolColor: "#a1a1aa", height: 44 },
+      titleBarOverlay: { color: "#18181b", symbolColor: "#a1a1aa", height: 44 },
     }
   }
   return {} // Linux: keep the standard frame.
@@ -160,7 +160,7 @@ async function createWindow() {
     height: 900,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: "#09090b",
+    backgroundColor: "#18181b",
     title: "Mr Rawbot",
     show: false,
     autoHideMenuBar: true,
@@ -249,7 +249,7 @@ ipcMain.on("mrrawbot:set-theme", (_event, theme) => {
     const dark = theme === "dark" || (theme === "system" && nativeTheme.shouldUseDarkColors)
     win.setTitleBarOverlay(
       dark
-        ? { color: "#09090b", symbolColor: "#a1a1aa", height: 44 }
+        ? { color: "#18181b", symbolColor: "#a1a1aa", height: 44 }
         : { color: "#ffffff", symbolColor: "#52525b", height: 44 },
     )
   }

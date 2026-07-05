@@ -1,15 +1,5 @@
 import { useEffect, useState } from "react"
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Plus,
-  Repeat,
-  Trash2,
-  Workflow,
-} from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Hierarchy2, Loader, Plus, Repeat, Trash2 } from "reicon-react"
 import { toast } from "sonner"
 
 import type { Effort, FlowConfig, FlowStep, ModelEntry, NewFlowConfig, Provider } from "@shared/types"
@@ -237,7 +227,7 @@ export function FlowsDialog({
       <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[min(calc(100vw-2rem),86rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         <DialogHeader className="shrink-0 space-y-1 border-b px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
-            <Workflow className="size-4" /> Flows
+            <Hierarchy2 className="size-4" /> Flows
           </DialogTitle>
           <DialogDescription>
             Each step picks its own provider, model and reasoning effort — mix them freely.
@@ -387,7 +377,7 @@ export function FlowsDialog({
                   </AlertDialog>
                 )}
                 <Button onClick={handleSave} disabled={saving}>
-                  {saving && <Loader2 className="size-4 animate-spin" />}
+                  {saving && <Loader className="size-4 animate-spin" />}
                   {selected === "new" ? "Create flow" : "Save changes"}
                 </Button>
               </div>

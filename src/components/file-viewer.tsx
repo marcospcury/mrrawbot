@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { LanguageDescription } from "@codemirror/language"
 import { languages } from "@codemirror/language-data"
 import type { Extension } from "@codemirror/state"
+import { Markdown } from "@copilotkit/react-ui"
 import CodeMirror from "@uiw/react-codemirror"
-import { Check, Copy, FileCode2, Globe, Maximize2, X } from "lucide-react"
-import { useTheme } from "@/components/theme-provider"
+import { BookOpen, Check, Code, CodeFile, Copy, Expand, Globe, X } from "reicon-react"
+import { MarkdownLink } from "@/components/markdown-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { createEditorTheme } from "@/lib/codemirror-theme"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { editorChrome, useEditorTheme } from "@/lib/editor-themes"
 import { isPreviewable, openPreview } from "@/lib/preview"
 import { useProjectFile } from "@/lib/queries"
 
@@ -20,10 +22,11 @@ interface FileViewerProps {
 
 export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerProps) {
   const file = useProjectFile(projectId, path)
-  const { resolvedTheme } = useTheme()
   const [languageExtensions, setLanguageExtensions] = useState<Extension[]>([])
   const [copied, setCopied] = useState(false)
-  const editorTheme = useMemo(() => createEditorTheme(resolvedTheme === "dark"), [resolvedTheme])
+  const [showSource, setShowSource] = useState(false)
+  const editorTheme = useEditorTheme()
+  const isMarkdown = /\.(md|markdown)$/i.test(path ?? "")
 
   // Don't carry the "copied" checkmark over to a different file.
   useEffect(() => {
@@ -65,7 +68,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
-        <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
+        <CodeFile className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-mono text-xs" title={content?.path ?? path}>
           {content?.path ?? path}
         </span>
@@ -73,6 +76,17 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
           <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
             Truncated
           </Badge>
+        )}
+        {isMarkdown && !content?.binary && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={showSource ? "View rendered markdown" : "View markdown source"}
+            title={showSource ? "View rendered" : "View source"}
+            onClick={() => setShowSource((value) => !value)}
+          >
+            {showSource ? <BookOpen className="size-3" /> : <Code className="size-3" />}
+          </Button>
         )}
         {isPreviewable(path) && (
           <Button
@@ -96,7 +110,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
         </Button>
         {onExpand && (
           <Button variant="ghost" size="icon-xs" aria-label="Expand file viewer" title="Expand" onClick={onExpand}>
-            <Maximize2 className="size-3" />
+            <Expand className="size-3" />
           </Button>
         )}
         {onClose && (
@@ -112,6 +126,12 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
         <ViewerStatus>Unable to load file</ViewerStatus>
       ) : content?.binary ? (
         <ViewerStatus>Binary file not shown</ViewerStatus>
+      ) : isMarkdown && !showSource ? (
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="mrr-doc mrr-markdown mx-auto w-full max-w-3xl px-6 py-5">
+            <Markdown content={content?.content ?? ""} components={{ a: MarkdownLink }} />
+          </div>
+        </ScrollArea>
       ) : (
         <CodeMirror
           key={content?.path ?? path}
@@ -122,7 +142,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
           readOnly
           editable={false}
           theme={editorTheme}
-          extensions={languageExtensions}
+          extensions={[...languageExtensions, editorChrome]}
         />
       )}
     </div>
