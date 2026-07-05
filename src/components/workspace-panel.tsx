@@ -1,5 +1,6 @@
 import { useEffect } from "react"
-import { ArrowLeftToLine, FolderTree, GitCompareArrows, MessageSquare, PenTool } from "lucide-react"
+import { AnglesLeft, Chat, DiagramTree, PenTool2 } from "reicon-react"
+import { GitCompareArrows } from "lucide-react"
 import { ChangesView } from "@/components/changes-view"
 import { ArtifactsTab } from "@/components/artifacts-tab"
 import { FileTree } from "@/components/file-tree"
@@ -81,7 +82,7 @@ export function WorkspacePanel({
             {/* The base TabsList sets h-9 via a group-data variant that outranks a plain h-8. */}
             <TabsList className="h-8!">
               <TabsTrigger value="files" className="gap-1.5">
-                <FolderTree className="size-4" />
+                <DiagramTree className="size-4" />
                 Files
               </TabsTrigger>
               <TabsTrigger value="changes" className="gap-1.5">
@@ -89,7 +90,7 @@ export function WorkspacePanel({
                 Changes
               </TabsTrigger>
               <TabsTrigger value="design" className="relative gap-1.5">
-                <PenTool className="size-4" />
+                <PenTool2 className="size-4" />
                 Artifacts
                 {hasNewArtifacts && (
                   <span
@@ -102,7 +103,7 @@ export function WorkspacePanel({
             <div className="ml-auto flex items-center gap-1">
               {isMain ? (
                 <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onExitMain}>
-                  <MessageSquare className="size-3.5" />
+                  <Chat className="size-3.5" />
                   Back to chat
                 </Button>
               ) : (
@@ -116,7 +117,7 @@ export function WorkspacePanel({
                         aria-label="Open in main view"
                         onClick={onOpenInMain}
                       >
-                        <ArrowLeftToLine className="size-4" />
+                        <AnglesLeft className="size-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Open in main view</TooltipContent>

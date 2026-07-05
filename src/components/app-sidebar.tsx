@@ -1,33 +1,6 @@
 import { useState } from "react"
-import {
-  Archive,
-  ArchiveRestore,
-  Bot,
-  ChevronDown,
-  ChevronRight,
-  ChevronsUpDown,
-  Folder,
-  FolderGit2,
-  FolderInput,
-  FolderOpen,
-  FolderPlus,
-  GitBranch,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  MessageSquare,
-  MessageSquarePlus,
-  MonitorSmartphone,
-  Moon,
-  MoreHorizontal,
-  Pencil,
-  PenTool,
-  Plus,
-  Settings,
-  Sun,
-  Trash2,
-  Workflow,
-} from "lucide-react"
+import { Archive, ArchiveUp, Chat, ChatPlus, ChevronDown, ChevronExpandY, ChevronRight, Devices, Edit2, Folder, FolderDown, FolderOpen, FolderPlus, Hierarchy2, Moon, MoreH, PenTool2, Plus, Settings, Sun, Trash2 } from "reicon-react"
+import { Bot, FolderGit2, GitBranch, GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react"
 import type { Project, ProjectBranchStatus, Thread, ThreadFolder, ThreadKind } from "@shared/types"
 import { useTheme } from "@/components/theme-provider"
 import {
@@ -170,21 +143,21 @@ export function AppSidebar(props: AppSidebarProps) {
                 className="h-9 min-w-0 flex-1 justify-start gap-2"
                 disabled={!activeProject}
               >
-                <MessageSquarePlus className="size-4" />
+                <ChatPlus className="size-4" />
                 New thread
                 <ChevronDown className="ml-auto size-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuItem onClick={() => props.onNewThread("build")} className="gap-2">
-                <MessageSquarePlus className="size-4 text-muted-foreground" />
+                <ChatPlus className="size-4 text-muted-foreground" />
                 <span className="grid gap-0.5">
                   <span>Build thread</span>
                   <span className="text-xs text-muted-foreground">Run agents and flows on the repository</span>
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => props.onNewThread("product-design")} className="gap-2">
-                <PenTool className="size-4 text-muted-foreground" />
+                <PenTool2 className="size-4 text-muted-foreground" />
                 <span className="grid gap-0.5">
                   <span>Product design session</span>
                   <span className="text-xs text-muted-foreground">
@@ -267,7 +240,7 @@ export function AppSidebar(props: AppSidebarProps) {
         </button>
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <FooterButton icon={Bot} label="Agents" onClick={props.onOpenAgents} />
-          <FooterButton icon={Workflow} label="Flows" onClick={props.onOpenFlows} />
+          <FooterButton icon={Hierarchy2} label="Flows" onClick={props.onOpenFlows} />
           <FooterButton icon={Settings} label="Settings" onClick={props.onOpenSettings} />
           <div className="flex-1 group-data-[collapsible=icon]:hidden" />
           <ThemeToggle />
@@ -378,7 +351,7 @@ function ProjectSwitcher({
               {activeProject?.repoName ?? "No repository"}
             </span>
           </div>
-          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+          <ChevronExpandY className="ml-auto size-4 text-muted-foreground" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-(--radix-dropdown-menu-trigger-width) min-w-72">
@@ -448,12 +421,12 @@ function FolderRow({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction showOnHover>
-            <MoreHorizontal className="size-4" />
+            <MoreH className="size-4" />
           </SidebarMenuAction>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" className="w-44">
           <DropdownMenuItem onClick={onRename} className="gap-2">
-            <Pencil className="size-4" />
+            <Edit2 className="size-4" />
             Rename folder
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -478,7 +451,7 @@ interface ThreadGitMeta {
 /** Icon + color for a thread row based on its linked branch and PR state. */
 function threadGitMeta(thread: Thread, branches: ProjectBranchStatus[] | undefined): ThreadGitMeta {
   if (!thread.branchName) {
-    return { icon: MessageSquare, className: "text-muted-foreground/70", tooltip: null, isCurrent: false }
+    return { icon: Chat, className: "text-muted-foreground/70", tooltip: null, isCurrent: false }
   }
   const branch = branches?.find((b) => b.name === thread.branchName)
   const pr = branch?.pullRequest ?? null
@@ -556,7 +529,7 @@ function ThreadRow({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction showOnHover>
-            <MoreHorizontal className="size-4" />
+            <MoreH className="size-4" />
           </SidebarMenuAction>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" className="w-48">
@@ -564,20 +537,20 @@ function ThreadRow({
             {relativeTime(thread.updatedAt)}
           </DropdownMenuLabel>
           <DropdownMenuItem onClick={onRename} className="gap-2">
-            <Pencil className="size-4" />
+            <Edit2 className="size-4" />
             Rename
           </DropdownMenuItem>
           {folders.length > 0 && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="gap-2">
-                <FolderInput className="size-4 text-muted-foreground" />
+                <FolderDown className="size-4 text-muted-foreground" />
                 Move to folder
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-44">
                 {thread.folderId && (
                   <>
                     <DropdownMenuItem onClick={() => onMoveToFolder(null)} className="gap-2">
-                      <MessageSquare className="size-4 text-muted-foreground" />
+                      <Chat className="size-4 text-muted-foreground" />
                       No folder
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -595,7 +568,7 @@ function ThreadRow({
             </DropdownMenuSub>
           )}
           <DropdownMenuItem onClick={onArchive} className="gap-2">
-            {archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />}
+            {archived ? <ArchiveUp className="size-4" /> : <Archive className="size-4" />}
             {archived ? "Unarchive" : "Archive"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -901,7 +874,7 @@ function CollapseToggle() {
 function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const next = theme === "dark" ? "light" : theme === "light" ? "system" : "dark"
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : MonitorSmartphone
+  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Devices
   return (
     <Tooltip>
       <TooltipTrigger asChild>

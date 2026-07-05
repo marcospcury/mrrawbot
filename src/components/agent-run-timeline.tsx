@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { AlertCircle, Check, ChevronDown, ChevronRight, CircleDashed, Loader2, Workflow } from "lucide-react"
+import { AlertCircle, Check, ChevronDown, ChevronRight, Hierarchy2, Loader } from "reicon-react"
+import { CircleDashed } from "lucide-react"
 import type { AgentRunState, RunStep } from "@shared/types"
 import { ProviderPill } from "@/components/provider-pill"
 import { durationLabel } from "@/lib/format"
@@ -38,12 +39,12 @@ export function AgentRunTimeline({
   return (
     <div className="animate-mrr-in my-2 w-full overflow-hidden rounded-xl border bg-card/60 text-card-foreground shadow-sm">
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
-        <Workflow className="size-4 text-muted-foreground" />
+        <Hierarchy2 className="size-4 text-muted-foreground" />
         <span className="text-sm font-medium">{state.flowName}</span>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           {running ? (
             <span className="flex items-center gap-1.5 text-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Running
+              <Loader className="size-3.5 animate-spin" /> Running
             </span>
           ) : state.status === "error" ? (
             <span className="flex items-center gap-1.5 text-destructive">
@@ -138,7 +139,7 @@ function StepIcon({ status, isLast }: { status: RunStep["status"]; isLast: boole
     <span className="relative flex size-[18px] shrink-0 items-center justify-center">
       {!isLast && <span className="absolute left-1/2 top-[18px] h-[calc(100%+10px)] w-px -translate-x-1/2 bg-border" />}
       {status === "running" ? (
-        <Loader2 className="size-[18px] animate-spin text-foreground" />
+        <Loader className="size-[18px] animate-spin text-foreground" />
       ) : status === "done" ? (
         <Check className="size-[18px] rounded-full bg-emerald-500/15 p-0.5 text-emerald-400" />
       ) : status === "error" ? (

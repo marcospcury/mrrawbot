@@ -4,7 +4,7 @@ import { languages } from "@codemirror/language-data"
 import type { Extension } from "@codemirror/state"
 import { Markdown } from "@copilotkit/react-ui"
 import CodeMirror from "@uiw/react-codemirror"
-import { BookOpenText, Check, CodeXml, Copy, FileCode2, Globe, Maximize2, X } from "lucide-react"
+import { BookOpen, Check, Code, CodeFile, Copy, Expand, Globe, X } from "reicon-react"
 import { MarkdownLink } from "@/components/markdown-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -68,7 +68,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
-        <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
+        <CodeFile className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-mono text-xs" title={content?.path ?? path}>
           {content?.path ?? path}
         </span>
@@ -85,7 +85,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
             title={showSource ? "View rendered" : "View source"}
             onClick={() => setShowSource((value) => !value)}
           >
-            {showSource ? <BookOpenText className="size-3" /> : <CodeXml className="size-3" />}
+            {showSource ? <BookOpen className="size-3" /> : <Code className="size-3" />}
           </Button>
         )}
         {isPreviewable(path) && (
@@ -110,7 +110,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
         </Button>
         {onExpand && (
           <Button variant="ghost" size="icon-xs" aria-label="Expand file viewer" title="Expand" onClick={onExpand}>
-            <Maximize2 className="size-3" />
+            <Expand className="size-3" />
           </Button>
         )}
         {onClose && (

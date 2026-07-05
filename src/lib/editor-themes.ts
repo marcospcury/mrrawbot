@@ -71,6 +71,18 @@ export const editorChrome: Extension = EditorView.theme({
     background: "color-mix(in srgb, #2ea043 26%, transparent)",
     borderRadius: "2px",
   },
+  // The merge base theme paints its 2px bottom-stripe "underscore" via
+  // &light/&dark + .cm-merge-* selectors (3 classes), which outrank the plain
+  // rules above. Match that specificity — themes mount after base themes, so
+  // these win the tie. (&light/&dark themselves are baseTheme-only syntax.)
+  "&.cm-merge-b .cm-changedText": {
+    background: "color-mix(in srgb, #2ea043 26%, transparent)",
+    borderRadius: "2px",
+  },
+  "&.cm-merge-a .cm-changedText, & .cm-deletedChunk .cm-deletedText": {
+    background: "color-mix(in srgb, #f85149 26%, transparent)",
+    borderRadius: "2px",
+  },
   ".cm-insertedLine ins": { textDecoration: "none" },
   ".cm-deletedChunk": { background: "color-mix(in srgb, #f85149 9%, transparent)" },
   ".cm-deletedText": {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Check, ChevronDown, Zap } from "lucide-react"
+import { Check, ChevronDown, Flash2 } from "reicon-react"
 import { PROVIDERS, type ModelEntry, type Provider } from "@shared/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -127,7 +127,7 @@ function ModelRow({
       <Check className={cn("size-3.5", selected ? "opacity-100" : "opacity-0")} />
       <span className={cn("size-2 shrink-0 rounded-full", PROVIDER_DOT[entry.provider])} />
       <span className="min-w-0 flex-1 truncate">{entry.id}</span>
-      {entry.fast && <Zap className="size-3.5 text-amber-400" />}
+      {entry.fast && <Flash2 className="size-3.5 text-amber-400" />}
       {entry.hidden && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">hidden</span>}
       {!entry.available && <span className="text-[10px] text-muted-foreground">{providerMeta(entry.provider).short}: login needed</span>}
     </CommandItem>

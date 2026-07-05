@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { Bot, Loader2, Plus, Trash2 } from "lucide-react"
+import { Loader, Plus, Trash2 } from "reicon-react"
+import { Bot } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -438,7 +439,7 @@ export function AgentsDialog({
                   </AlertDialog>
                 )}
                 <Button onClick={handleSave} disabled={saving}>
-                  {saving && <Loader2 className="animate-spin" />}
+                  {saving && <Loader className="animate-spin" />}
                   {selected === "new" ? "Create agent" : "Save changes"}
                 </Button>
               </div>

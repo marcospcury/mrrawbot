@@ -1,21 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ArtifactInfo, ArtifactKind } from "@shared/types"
 import { Markdown } from "@copilotkit/react-ui"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  ExternalLink,
-  FileText,
-  Hammer,
-  Home,
-  LayoutGrid,
-  MessagesSquare,
-  PenTool,
-  RotateCw,
-  Terminal,
-  Trash2,
-} from "lucide-react"
+import { ArrowRotate, ArrowUpRightSquare, Category2, ChatSquare, ChevronLeft, ChevronRight, Copy, FileText, Home, PenTool2, Sledgehammer, TerminalSquare, Trash2 } from "reicon-react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -128,7 +114,7 @@ function ArtifactGallery({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/40">
-          <PenTool className="size-5 text-muted-foreground" />
+          <PenTool2 className="size-5 text-muted-foreground" />
         </div>
         <div className="space-y-1">
           <p className="text-sm font-medium">No artifacts yet</p>
@@ -200,7 +186,7 @@ function ThreadChip({
       )}
       title={onSelectThread ? `Open thread: ${threadTitle}` : threadTitle}
     >
-      <MessagesSquare className="size-3 shrink-0" />
+      <ChatSquare className="size-3 shrink-0" />
       <span className="truncate">{threadTitle}</span>
     </button>
   )
@@ -254,7 +240,7 @@ function DocumentCard({
   onOpen: () => void
   onSelectThread?: (threadId: string) => void
 }) {
-  const Icon = artifact.kind === "spec" ? FileText : Terminal
+  const Icon = artifact.kind === "spec" ? FileText : TerminalSquare
   return (
     <div className="group overflow-hidden rounded-xl border bg-card text-left shadow-xs transition-colors hover:border-ring/40">
       <div className="space-y-1.5 px-3.5 py-3">
@@ -333,7 +319,7 @@ function DocumentViewer({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" onClick={onBackToGallery} aria-label="All artifacts">
-              <LayoutGrid className="size-4" />
+              <Category2 className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>All artifacts</TooltipContent>
@@ -362,7 +348,7 @@ function DocumentViewer({
                 disabled={!text}
                 aria-label="Start build thread"
               >
-                <Hammer className="size-4" />
+                <Sledgehammer className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Start build thread with this prompt</TooltipContent>
@@ -515,7 +501,7 @@ function PrototypeBrowser({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" onClick={onBackToGallery} aria-label="All artifacts">
-              <LayoutGrid className="size-4" />
+              <Category2 className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>All artifacts</TooltipContent>
@@ -528,7 +514,7 @@ function PrototypeBrowser({
           <ChevronRight className="size-4" />
         </Button>
         <Button variant="ghost" size="icon-sm" onClick={reload} aria-label="Reload">
-          <RotateCw className="size-4" />
+          <ArrowRotate className="size-4" />
         </Button>
         <Button variant="ghost" size="icon-sm" onClick={goHome} aria-label="Home">
           <Home className="size-4" />
@@ -541,7 +527,7 @@ function PrototypeBrowser({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" onClick={popOut} aria-label="Open in window">
-              <ExternalLink className="size-4" />
+              <ArrowUpRightSquare className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Open in window</TooltipContent>

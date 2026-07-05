@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight } from "reicon-react"
 import type { FileTreeEntry } from "@shared/types"
 import { useAppearance } from "@/components/appearance-provider"
 import { ScrollArea } from "@/components/ui/scroll-area"

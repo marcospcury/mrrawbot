@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode, useEffect, useState } from "react"
-import { Check, KeyRound, Monitor, Moon, Settings, Sun } from "lucide-react"
+import { Check, Key, Monitor, Moon, Settings, Sun } from "reicon-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -73,7 +73,7 @@ function ProviderConfigForm({ config }: { config: ProviderConfig }) {
     <Card className="gap-3 py-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <KeyRound className="size-3.5" /> Configuration
+          <Key className="size-3.5" /> Configuration
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

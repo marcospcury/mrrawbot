@@ -8,17 +8,8 @@ import type {
   ProjectPullRequestDetails,
   Thread,
 } from "@shared/types"
-import {
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  CircleDot,
-  ExternalLink,
-  GitBranch,
-  GitPullRequest,
-  Loader2,
-  XCircle,
-} from "lucide-react"
+import { AlertCircle, ArrowUpRightSquare, CheckCircle, Loader, RecordCircle, XCircle } from "reicon-react"
+import { Circle, GitBranch, GitPullRequest } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -93,7 +84,7 @@ export function GitHeaderControl({ project, thread, compact = false }: GitHeader
             <GitBranch className="size-3.5 shrink-0" />
             {!compact && <span className="whitespace-nowrap font-mono text-xs">{branchLabel}</span>}
             {status.dirty && (
-              <CircleDot className="size-3 shrink-0 fill-amber-500 text-amber-500" aria-label="Dirty worktree" />
+              <RecordCircle weight="Filled" className="size-3 shrink-0 text-amber-500" aria-label="Dirty worktree" />
             )}
             {!compact && (
               <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">{action}</span>
@@ -342,7 +333,7 @@ function GitProjectDialog({
                 {status.published ? "published" : "unpublished"}
               </Badge>
             )}
-            {statusRefreshing && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+            {statusRefreshing && <Loader className="size-3.5 animate-spin text-muted-foreground" />}
           </div>
           <div className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
             <span>Ahead {status.ahead} / behind {status.behind}</span>
@@ -397,7 +388,7 @@ function GitProjectDialog({
             </div>
             <div>
               <Button onClick={createBranch} disabled={mutations.createBranch.isPending}>
-                {mutations.createBranch.isPending && <Loader2 className="size-4 animate-spin" />}
+                {mutations.createBranch.isPending && <Loader className="size-4 animate-spin" />}
                 Create branch
               </Button>
             </div>
@@ -455,7 +446,7 @@ function GitProjectDialog({
                 onClick={mergePullRequest}
                 disabled={!merge.canMerge || !mergeConfirmed || mutations.mergePullRequest.isPending}
               >
-                {mutations.mergePullRequest.isPending && <Loader2 className="size-4 animate-spin" />}
+                {mutations.mergePullRequest.isPending && <Loader className="size-4 animate-spin" />}
                 Merge PR
               </Button>
             </div>
@@ -514,7 +505,7 @@ function PullRequestSection({
   if (loading) {
     return (
       <section className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading pull request state…
+        <Loader className="size-4 animate-spin" /> Loading pull request state…
       </section>
     )
   }
@@ -531,7 +522,7 @@ function PullRequestSection({
         </div>
         <a href={pr.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:underline">
           {pr.title}
-          <ExternalLink className="size-3" />
+          <ArrowUpRightSquare className="size-3" />
         </a>
         <p className="text-sm text-muted-foreground">
           {pr.headRefName} → {pr.baseRefName} · {pr.headSha.slice(0, 12)}
@@ -563,7 +554,7 @@ function PullRequestSection({
       </div>
       <div>
         <Button onClick={onCreatePullRequest} disabled={creatingPullRequest}>
-          {creatingPullRequest && <Loader2 className="size-4 animate-spin" />}
+          {creatingPullRequest && <Loader className="size-4 animate-spin" />}
           Open PR
         </Button>
       </div>
@@ -634,7 +625,7 @@ function CommitSection({
           onClick={onCommit}
           disabled={committing || !commitMessage.trim() || (commitMode === "new-branch" && !commitBranchName.trim())}
         >
-          {committing && <Loader2 className="size-4 animate-spin" />}
+          {committing && <Loader className="size-4 animate-spin" />}
           Commit changes
         </Button>
       </div>
@@ -664,7 +655,7 @@ function PushSection({
       </div>
       <div>
         <Button variant="secondary" onClick={onPush} disabled={pushing}>
-          {pushing && <Loader2 className="size-4 animate-spin" />}
+          {pushing && <Loader className="size-4 animate-spin" />}
           Push to origin
         </Button>
       </div>
@@ -693,7 +684,7 @@ function PullSection({
       {status.dirty && <p className="text-sm text-amber-600">Commit or discard local changes before pulling.</p>}
       <div>
         <Button variant="secondary" onClick={onPull} disabled={pulling || status.dirty}>
-          {pulling && <Loader2 className="size-4 animate-spin" />}
+          {pulling && <Loader className="size-4 animate-spin" />}
           Pull latest
         </Button>
       </div>
@@ -736,7 +727,7 @@ function PostMergeCleanupSection({
       )}
       <div>
         <Button variant="outline" onClick={onCleanup} disabled={cleaning || done || status.dirty}>
-          {cleaning && <Loader2 className="size-4 animate-spin" />}
+          {cleaning && <Loader className="size-4 animate-spin" />}
           {done ? "Cleaned up" : cleaning ? "Cleaning up…" : "Clean up"}
         </Button>
       </div>
@@ -746,7 +737,7 @@ function PostMergeCleanupSection({
 
 function CleanupStepRow({ step }: { step: CleanupStep }) {
   const Icon =
-    step.status === "done" ? CheckCircle2 : step.status === "running" ? Loader2 : step.status === "error" ? XCircle : Circle
+    step.status === "done" ? CheckCircle : step.status === "running" ? Loader : step.status === "error" ? XCircle : Circle
   return (
     <div className="flex min-w-0 items-center gap-2 text-sm">
       <Icon
@@ -835,7 +826,7 @@ function PullRequestDetails({ details }: { details: ProjectPullRequestDetails })
 
 function StatusRow({ row }: { row: GitHubStatusRow }) {
   const tone = statusTone(row)
-  const Icon = tone === "success" ? CheckCircle2 : tone === "failure" ? XCircle : tone === "pending" ? Loader2 : AlertCircle
+  const Icon = tone === "success" ? CheckCircle : tone === "failure" ? XCircle : tone === "pending" ? Loader : AlertCircle
   return (
     <a
       href={row.url ?? undefined}

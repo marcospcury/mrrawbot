@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { unifiedMergeView } from "@codemirror/merge"
 import type { Extension } from "@codemirror/state"
 import CodeMirror from "@uiw/react-codemirror"
-import { Loader2, TriangleAlert } from "lucide-react"
+import { AlertTriangle, Loader } from "reicon-react"
 import type { ThreadChange, ThreadChangeStatus } from "@shared/types"
 import { Badge } from "@/components/ui/badge"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
@@ -26,8 +26,8 @@ export function ChangesView({ threadId, layout = "list" }: ChangesViewProps) {
   const changes = useThreadChanges(threadId, 30_000)
   const groups = useMemo(() => groupChangesByRun(changes.data ?? []), [changes.data])
 
-  if (changes.isLoading) return <ChangesStatus icon={<Loader2 className="size-4 animate-spin" />}>Loading changes…</ChangesStatus>
-  if (changes.isError) return <ChangesStatus icon={<TriangleAlert className="size-4" />}>Unable to load changes</ChangesStatus>
+  if (changes.isLoading) return <ChangesStatus icon={<Loader className="size-4 animate-spin" />}>Loading changes…</ChangesStatus>
+  if (changes.isError) return <ChangesStatus icon={<AlertTriangle className="size-4" />}>Unable to load changes</ChangesStatus>
   if (groups.length === 0) return <ChangesStatus>No changes in this thread yet</ChangesStatus>
 
   if (layout === "split") return <ChangesSplit groups={groups} />

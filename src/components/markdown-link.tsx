@@ -1,5 +1,6 @@
 import type { ComponentProps, ComponentType, ReactNode } from "react"
-import { CircleDot, GitCommitHorizontal, GitPullRequest, Globe, Link2, Workflow } from "lucide-react"
+import { Globe, Hierarchy2, Link2, RecordCircle } from "reicon-react"
+import { GitCommitHorizontal, GitPullRequest } from "lucide-react"
 
 /**
  * Markdown anchor renderer shared by chat messages, artifact docs, and .md
@@ -74,12 +75,12 @@ function describeGithubLink(url: URL): LinkChipLabel {
       return { Icon: GitPullRequest, primary: `${repo} #${rest[0]}`, secondary: "Pull request" }
     case "issues":
       return rest[0]
-        ? { Icon: CircleDot, primary: `${repo} #${rest[0]}`, secondary: "Issue" }
+        ? { Icon: RecordCircle, primary: `${repo} #${rest[0]}`, secondary: "Issue" }
         : { Icon: GithubMark, primary: `${owner}/${repo}`, secondary: "Issues" }
     case "commit":
       return { Icon: GitCommitHorizontal, primary: `${repo}@${(rest[0] ?? "").slice(0, 7)}`, secondary: "Commit" }
     case "actions":
-      return { Icon: Workflow, primary: repo, secondary: rest[0] === "runs" ? "Actions run" : "Actions" }
+      return { Icon: Hierarchy2, primary: repo, secondary: rest[0] === "runs" ? "Actions run" : "Actions" }
     case "releases":
       return { Icon: GithubMark, primary: `${repo} ${rest[1] ?? ""}`.trim(), secondary: "Release" }
     case undefined:

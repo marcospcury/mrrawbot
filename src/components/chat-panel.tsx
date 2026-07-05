@@ -18,7 +18,7 @@ import {
   type SessionConfig,
   type Thread,
 } from "@shared/types"
-import { FolderTree } from "lucide-react"
+import { DiagramTree } from "reicon-react"
 import { AgentRunTimeline } from "@/components/agent-run-timeline"
 import { Composer } from "@/components/composer"
 import { MarkdownLink } from "@/components/markdown-link"
@@ -203,7 +203,7 @@ export function ChatPanel({
                 aria-pressed={workspaceOpen}
                 onClick={onToggleWorkspace}
               >
-                <FolderTree className="size-4" />
+                <DiagramTree className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{workspaceOpen ? "Hide workspace" : "Show workspace"}</TooltipContent>
