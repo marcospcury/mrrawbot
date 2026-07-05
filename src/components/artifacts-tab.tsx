@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { scopeArtifacts } from "@shared/artifact-scope"
 import type { ArtifactInfo, ArtifactKind } from "@shared/types"
 import { Markdown } from "@copilotkit/react-ui"
 import { ArrowRotate, ArrowUpRightSquare, Category2, ChatSquare, ChevronLeft, ChevronRight, Copy, FileText, Home, PenTool2, Sledgehammer, TerminalSquare, Trash2 } from "reicon-react"
@@ -24,6 +25,8 @@ import { cn } from "@/lib/utils"
 
 interface ArtifactsTabProps {
   projectId: string
+  /** Active thread — its folder decides which artifacts are in scope. */
+  threadId: string
   /** Prototype slug open in the embedded browser (null = gallery). */
   openSlug: string | null
   onOpenSlug: (slug: string | null) => void
@@ -31,20 +34,26 @@ interface ArtifactsTabProps {
   onStartBuildThread?: (promptText: string) => void
 }
 
-export function ArtifactsTab({ projectId, openSlug, onOpenSlug, onSelectThread, onStartBuildThread }: ArtifactsTabProps) {
-  const artifacts = useProjectArtifacts(projectId)
+export function ArtifactsTab({ projectId, threadId, openSlug, onOpenSlug, onSelectThread, onStartBuildThread }: ArtifactsTabProps) {
+  const artifactsQuery = useProjectArtifacts(projectId)
+  const threads = useThreads(projectId, true)
+  const loading = artifactsQuery.isLoading || threads.isLoading
+  const activeFolderId = threads.data?.find((t) => t.id === threadId)?.folderId ?? null
+  const artifacts = loading
+    ? null
+    : scopeArtifacts(artifactsQuery.data ?? [], threads.data ?? [], activeFolderId)
   const [openDoc, setOpenDoc] = useState<ArtifactInfo | null>(null)
-  const openPrototype = artifacts.data?.find((a) => a.kind === "prototype" && a.slug === openSlug) ?? null
+  const openPrototype = artifacts?.find((a) => a.kind === "prototype" && a.slug === openSlug) ?? null
 
-  // If the open artifact disappeared (deleted here or externally), fall back
-  // to the gallery instead of pointing the viewer at a 404.
+  // If the open artifact disappeared (deleted here or externally) or fell out
+  // of the folder scope, fall back to the gallery instead of a 404.
   useEffect(() => {
-    if (openSlug && artifacts.data && !artifacts.data.some((a) => a.kind === "prototype" && a.slug === openSlug))
+    if (openSlug && artifacts && !artifacts.some((a) => a.kind === "prototype" && a.slug === openSlug))
       onOpenSlug(null)
-  }, [openSlug, artifacts.data, onOpenSlug])
+  }, [openSlug, artifacts, onOpenSlug])
   useEffect(() => {
-    if (openDoc && artifacts.data && !artifacts.data.some((a) => a.id === openDoc.id)) setOpenDoc(null)
-  }, [openDoc, artifacts.data])
+    if (openDoc && artifacts && !artifacts.some((a) => a.id === openDoc.id)) setOpenDoc(null)
+  }, [openDoc, artifacts])
 
   if (openPrototype) {
     return (
@@ -72,8 +81,8 @@ export function ArtifactsTab({ projectId, openSlug, onOpenSlug, onSelectThread, 
   return (
     <ArtifactGallery
       projectId={projectId}
-      artifacts={artifacts.data ?? []}
-      loading={artifacts.isLoading}
+      artifacts={artifacts ?? []}
+      loading={loading}
       onOpenPrototype={(slug) => onOpenSlug(slug)}
       onOpenDoc={setOpenDoc}
       onSelectThread={onSelectThread}

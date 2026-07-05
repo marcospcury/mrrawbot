@@ -23,6 +23,7 @@ import {
   type PromptAttachmentKind,
   inferPromptAttachmentKind,
 } from "@shared/attachments"
+import { scopeArtifacts } from "@shared/artifact-scope"
 import { ModelCombobox } from "@/components/model-combobox"
 import { ProviderPill } from "@/components/provider-pill"
 import { Button } from "@/components/ui/button"
@@ -38,7 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRunConfig, type RunConfig } from "@/hooks/use-run-config"
 import { api } from "@/lib/api"
-import { useProjectArtifacts, useSetThreadArtifacts, useThreadArtifacts } from "@/lib/queries"
+import { useProjectArtifacts, useSetThreadArtifacts, useThreadArtifacts, useThreads } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 type StagedFile = {
@@ -681,10 +682,12 @@ const ARTIFACT_ICONS = { spec: FileText, prototype: PenTool2, prompt: TerminalSq
 
 function AttachArtifactsPill({ thread }: { thread: Thread }) {
   const artifacts = useProjectArtifacts(thread.projectId)
+  const threads = useThreads(thread.projectId, true)
   const attached = useThreadArtifacts(thread.id)
   const setAttached = useSetThreadArtifacts(thread.id)
   const attachedIds = new Set((attached.data ?? []).map((a) => a.id))
-  const all = artifacts.data ?? []
+  // Only artifacts in this thread's folder scope can be attached.
+  const all = scopeArtifacts(artifacts.data ?? [], threads.data ?? [], thread.folderId)
   if (all.length === 0) return null
 
   const toggle = (artifact: ArtifactInfo) => {

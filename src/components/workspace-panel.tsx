@@ -11,7 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { usePersisted } from "@/hooks/use-persisted"
-import { useProjectArtifacts, useProjects } from "@/lib/queries"
+import { scopeArtifacts } from "@shared/artifact-scope"
+import { useProjectArtifacts, useProjects, useThreads } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 // "design" is the persisted tab id for the Artifacts tab (kept for back-compat
@@ -55,10 +56,14 @@ export function WorkspacePanel({
   const hasRepository = Boolean(project?.repoPath.trim())
   const isMain = location === "main"
 
-  // A dot on the Artifacts tab when artifacts landed since it was last viewed.
+  // A dot on the Artifacts tab when in-scope artifacts landed since it was
+  // last viewed. Scope follows the active thread's folder, like the tab itself.
   const artifacts = useProjectArtifacts(hasRepository ? projectId : null)
+  const threads = useThreads(hasRepository ? projectId : null, true)
+  const activeFolderId = threads.data?.find((t) => t.id === threadId)?.folderId ?? null
+  const visibleArtifacts = scopeArtifacts(artifacts.data ?? [], threads.data ?? [], activeFolderId)
   const [designsSeen, setDesignsSeen] = usePersisted<Record<string, string>>("mrr.designs.seen", {})
-  const latestArtifactAt = artifacts.data?.[0]?.updatedAt ?? null
+  const latestArtifactAt = visibleArtifacts[0]?.updatedAt ?? null
   const hasNewArtifacts = tab !== "design" && !!latestArtifactAt && latestArtifactAt > (designsSeen[projectId] ?? "")
   useEffect(() => {
     if (tab !== "design" || !latestArtifactAt) return
@@ -159,6 +164,7 @@ export function WorkspacePanel({
           <TabsContent value="design" className="min-h-0 overflow-hidden">
             <ArtifactsTab
               projectId={projectId}
+              threadId={threadId}
               openSlug={openDesignSlug}
               onOpenSlug={onOpenDesign}
               onSelectThread={onSelectThread}
