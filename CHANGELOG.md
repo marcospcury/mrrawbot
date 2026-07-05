@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/marcospcury/mrrawbot/compare/v1.3.0...v1.4.0) (2026-07-05)
+
+
+### Features
+
+* add file upload to composer ([#11](https://github.com/marcospcury/mrrawbot/issues/11)) ([d732d40](https://github.com/marcospcury/mrrawbot/commit/d732d40592c1a8b8dec913c9b779d7ddf2f931db))
+
+
+### Bug Fixes
+
+* resize-handle drag reliability, git header collapse threshold, and UI smoothness ([#9](https://github.com/marcospcury/mrrawbot/issues/9)) ([1af36e9](https://github.com/marcospcury/mrrawbot/commit/1af36e98476c1be0e35c78d29d77ca310af53a5d))
+
 ## [1.3.0](https://github.com/marcospcury/mrrawbot/compare/v1.2.1...v1.3.0) (2026-07-04)
 
 
