@@ -133,6 +133,7 @@ export interface ProductDesignTurnInput {
   projectId: string
   repoPath: string
   repoName: string
+  uploadsDir?: string
   /** App-internal artifacts folder for the project (`env.artifactsRoot/<projectId>`). */
   artifactsWorkspace: string
   session: SessionConfig
@@ -186,6 +187,7 @@ async function runPersona(input: ProductDesignTurnInput, persona: Persona, speci
       effort,
       fast: fast ?? false,
       cwd: input.repoPath,
+      uploadsDir: input.uploadsDir,
       workspaceDir: input.artifactsWorkspace,
       skillDirs: roleSkillDirs(meta.role),
       // Generous turn budget for Claude/Codex; the Ollama loop runs until done regardless.

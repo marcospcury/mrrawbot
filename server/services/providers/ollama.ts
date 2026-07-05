@@ -103,7 +103,7 @@ export async function runOllama(input: ProviderRunInput): Promise<ProviderRunOut
   }
 
   const tools = [
-    ...makeRepoTools(input.cwd, input.signal, input.workspaceDir),
+    ...makeRepoTools(input.cwd, input.signal, input.workspaceDir, input.uploadsDir),
     ...makeSkillTools(input.cwd, input.skillDirs ?? []),
   ]
   const toolMap = new Map<string, StructuredToolInterface>(tools.map((t) => [t.name, t]))

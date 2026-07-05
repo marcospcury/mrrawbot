@@ -137,9 +137,65 @@ describe("role step directives", () => {
 
     expect(prompts[0]).not.toContain("# Your job in this step")
   })
+
+  it("passes uploadsDir through to the runner", async () => {
+    const uploads: Array<string | undefined> = []
+    const runners: Partial<Record<Provider, ProviderRunner>> = {
+      codex: async (input) => {
+        uploads.push(input.uploadsDir)
+        return { text: "done", usage: null }
+      },
+    }
+
+    await runFlow({
+      flow: flow([step("code", "codex")]),
+      repoPath: "/repo",
+      repoName: "repo",
+      designWorkspace: "/designs/p1",
+      uploadsDir: "/uploads/p1/thread-1",
+      task: "Do the thing",
+      history: "",
+      emit: () => {},
+      signal: new AbortController().signal,
+      runners,
+    })
+
+    expect(uploads).toEqual(["/uploads/p1/thread-1"])
+  })
 })
 
 describe("plan-executor mode", () => {
+  it("passes uploadsDir through plan-executor build and completion-check runner calls", async () => {
+    const uploads: Array<string | undefined> = []
+    const runners: Partial<Record<Provider, ProviderRunner>> = {
+      codex: async (input) => {
+        uploads.push(input.uploadsDir)
+        if (input.prompt.includes("Inspect the repository")) {
+          return {
+            text: planJson("done", []),
+            usage: null,
+          }
+        }
+        return { text: "DONE: completed", usage: null }
+      },
+    }
+
+    await runFlow({
+      flow: flow([{ ...step("build", "codex"), mode: "plan-executor" }]),
+      repoPath: "/repo",
+      repoName: "repo",
+      designWorkspace: "/designs/p1",
+      uploadsDir: "/uploads/p1/thread-1",
+      task: planJson("Build the feature", [{ id: 1, title: "Read file", prompt: "Inspect repository." }]),
+      history: "",
+      emit: () => {},
+      signal: new AbortController().signal,
+      runners,
+    })
+
+    expect(uploads).toEqual(["/uploads/p1/thread-1", "/uploads/p1/thread-1"])
+  })
+
   it("runs each parsed plan step with fresh focused prompts", async () => {
     const buildPrompts: string[] = []
     const checkerPrompts: string[] = []

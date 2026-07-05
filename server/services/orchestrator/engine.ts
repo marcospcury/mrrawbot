@@ -28,6 +28,7 @@ export interface RunFlowContext {
   flow: FlowConfig
   repoPath: string
   repoName: string
+  uploadsDir?: string
   /**
    * App-internal folder for this project's design prototypes
    * (`env.designsRoot/<projectId>`). Designer steps create their work here —
@@ -125,6 +126,7 @@ function makeSingleNode(step: FlowStep, ctx: RunFlowContext, nextStep: FlowStep 
         effort: step.effort,
         fast: step.fast ?? false,
         cwd: ctx.repoPath,
+        uploadsDir: ctx.uploadsDir,
         workspaceDir: step.role === "ui-designer" ? ctx.designWorkspace : undefined,
         skillDirs: roleSkillDirs(step.role),
         maxIterations: step.maxIterations,
@@ -244,6 +246,7 @@ async function runPlanFallback({
     effort: step.effort,
     fast: step.fast ?? false,
     cwd: ctx.repoPath,
+    uploadsDir: ctx.uploadsDir,
     workspaceDir: step.role === "ui-designer" ? ctx.designWorkspace : undefined,
     skillDirs: roleSkillDirs(step.role),
     maxIterations: step.maxIterations,
@@ -302,6 +305,7 @@ async function runPlanSteps({
         effort: step.effort,
         fast: step.fast ?? false,
         cwd: ctx.repoPath,
+        uploadsDir: ctx.uploadsDir,
         workspaceDir: step.role === "ui-designer" ? ctx.designWorkspace : undefined,
         skillDirs: roleSkillDirs(step.role),
         maxIterations: step.maxIterations,
@@ -360,6 +364,7 @@ async function runCompletionCheck({
       effort: step.effort,
       fast: step.fast ?? false,
       cwd: ctx.repoPath,
+      uploadsDir: ctx.uploadsDir,
       skillDirs: roleSkillDirs(step.role),
       maxIterations: step.maxIterations,
       temperature: step.temperature,
@@ -516,6 +521,7 @@ export interface RunFlowInput {
   flow: FlowConfig
   repoPath: string
   repoName: string
+  uploadsDir?: string
   /** App-internal design-prototype folder for the project (see RunFlowContext). */
   designWorkspace: string
   /** Attached-artifacts prompt section (see RunFlowContext). */
@@ -533,6 +539,7 @@ export async function runFlow(input: RunFlowInput): Promise<string> {
     flow: input.flow,
     repoPath: input.repoPath,
     repoName: input.repoName,
+    uploadsDir: input.uploadsDir,
     designWorkspace: input.designWorkspace,
     artifactsContext: input.artifactsContext,
     emit: input.emit,

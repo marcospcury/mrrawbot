@@ -81,10 +81,28 @@ function runBash(cwd: string, command: string, timeoutMs: number, signal?: Abort
   })
 }
 
-export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: string) {
+export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: string, uploadsDir?: string) {
   // Relative paths resolve inside the repo; absolute paths may also land in the
-  // extra workspace root (e.g. the designer's app-internal design workspace).
-  const resolvePath = (p: string): string => {
+  // extra workspace root (e.g. the designer's app-internal design workspace) or
+  // the uploads root (for attached files).
+  const resolveReadPath = (p: string): string => {
+    const roots = [cwd]
+    if (workspaceDir) roots.push(workspaceDir)
+    if (uploadsDir) roots.push(uploadsDir)
+
+    let lastError: Error | undefined
+    for (const root of roots) {
+      try {
+        return safeResolve(root, p)
+      } catch (err) {
+        lastError = err as Error
+      }
+    }
+
+    throw lastError ?? new Error(`Path escapes the repository: ${p}`)
+  }
+
+  const resolveWritePath = (p: string): string => {
     try {
       return safeResolve(cwd, p)
     } catch (err) {
@@ -96,7 +114,7 @@ export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: 
   const readFileTool = tool(
     async ({ path: p }) => {
       try {
-        const abs = resolvePath(p)
+        const abs = resolveReadPath(p)
         const info = await stat(abs)
         if (info.isDirectory()) return `Error: ${p} is a directory. Use list_dir.`
         if (info.size > 400_000) return `Error: ${p} is too large (${info.size} bytes).`
@@ -115,7 +133,7 @@ export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: 
   const listDirTool = tool(
     async ({ path: p }) => {
       try {
-        const abs = resolvePath(p || ".")
+        const abs = resolveReadPath(p || ".")
         const entries = await readdir(abs, { withFileTypes: true })
         const lines = entries
           .filter((e) => !e.name.startsWith(".git"))
@@ -136,7 +154,7 @@ export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: 
   const grepTool = tool(
     async ({ query, path: p }) => {
       try {
-        const target = p ? resolvePath(p) : cwd
+        const target = p ? resolveReadPath(p) : cwd
         const { stdout } = await pexec(
           "rg",
           ["--line-number", "--no-heading", "--color", "never", "-S", "--max-count", "40", query, "."],
@@ -162,7 +180,7 @@ export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: 
   const writeFileTool = tool(
     async ({ path: p, content }) => {
       try {
-        const abs = resolvePath(p)
+        const abs = resolveWritePath(p)
         await mkdir(path.dirname(abs), { recursive: true })
         await writeFile(abs, content, "utf8")
         return `Wrote ${content.length} bytes to ${p}`

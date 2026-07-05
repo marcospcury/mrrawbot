@@ -13,6 +13,7 @@ import { providersRouter } from "./providers.ts"
 import { projectGitRouter } from "./projectGit.ts"
 import { reposRouter } from "./repos.ts"
 import { threadsRouter } from "./threads.ts"
+import { uploadsRouter } from "./uploads.ts"
 import { asyncHandler } from "./_util.ts"
 
 const pkg = JSON.parse(readFileSync(path.join(ROOT_DIR, "package.json"), "utf8")) as {
@@ -42,9 +43,11 @@ export function makeApiRouter(): Router {
   r.use("/flows", flowsRouter)
   r.use("/providers", providersRouter)
   r.use("/", projectGitRouter)
-  // filesRouter, artifactsRouter and threadsRouter define fully-qualified paths (/projects/:id/..., /threads/:id ...)
+  // filesRouter, artifactsRouter, uploadsRouter and threadsRouter define fully-qualified paths
+  // (/projects/:id/..., /threads/:id/...).
   r.use("/", artifactsRouter)
   r.use("/", filesRouter)
+  r.use("/", uploadsRouter)
   r.use("/", threadsRouter)
 
   return r

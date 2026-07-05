@@ -10,6 +10,8 @@ export interface ProviderRunInput {
   /** Codex only: run on the "Fast" service tier. Other providers ignore it. */
   fast: boolean
   cwd: string
+  /** Absolute thread upload directory for file attachment path injection. */
+  uploadsDir?: string
   /**
    * Extra writable root for roles whose deliverable lives outside the repo
    * (the UI designer's app-internal design workspace). Claude and Codex reach

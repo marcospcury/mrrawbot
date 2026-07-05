@@ -45,6 +45,13 @@ export interface Env {
    * Override with MRRAWBOT_DESIGNS_DIR.
    */
   artifactsRoot: string
+  /**
+   * App-internal store for user-uploaded prompt attachments. Files are staged
+   * under `<uploadsRoot>/<projectId>/<threadId>/`, outside any project repo, and
+   * shared by the UI and all provider runners.
+   * Override with MRRAWBOT_UPLOADS_DIR.
+   */
+  uploadsRoot: string
   repoRoots: string[]
   repoScanDepth: number
 
@@ -117,6 +124,7 @@ export const env: Env = {
   port: Number(process.env.MRRAWBOT_PORT ?? 4000),
   dbPath,
   artifactsRoot: process.env.MRRAWBOT_DESIGNS_DIR ?? path.join(path.dirname(dbPath), "designs"),
+  uploadsRoot: process.env.MRRAWBOT_UPLOADS_DIR ?? path.join(path.dirname(dbPath), "uploads"),
   repoRoots:
     parseRoots(process.env.MRRAWBOT_REPO_ROOTS).filter((p) => existsSync(p)).length > 0
       ? parseRoots(process.env.MRRAWBOT_REPO_ROOTS).filter((p) => existsSync(p))
