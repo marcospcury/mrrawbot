@@ -25,6 +25,7 @@ import type {
   Thread,
   ThreadKind,
 } from "@shared/types"
+import type { PromptAttachmentUploadRequest, PromptAttachmentUploadResponse } from "@shared/attachments"
 
 const BASE = "/api"
 
@@ -141,6 +142,11 @@ export const api = {
   clearMessages: (threadId: string) => request<void>(`/threads/${threadId}/messages`, { method: "DELETE" }),
   runs: (threadId: string) => request<AgentRunRecord[]>(`/threads/${threadId}/runs`),
   getThreadChanges: (threadId: string) => request<ThreadChange[]>(`/threads/${threadId}/changes`),
+  uploadThreadFile: (threadId: string, input: PromptAttachmentUploadRequest) =>
+    request<PromptAttachmentUploadResponse>(`/threads/${threadId}/uploads`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   listAgents: () => request<AgentConfig[]>("/agents"),
   createAgent: (input: NewAgentConfig) =>

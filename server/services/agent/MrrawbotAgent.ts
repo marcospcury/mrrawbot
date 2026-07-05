@@ -24,6 +24,7 @@ import type { OrchEvent } from "../orchestrator/events.ts"
 import { buildArtifactContext } from "../artifactContext.ts"
 import { createChangeTracker } from "../changeTracker.ts"
 import { createArtifactTracker, projectArtifactsDir, type ArtifactTracker } from "../artifacts.ts"
+import { threadUploadsDir } from "../uploads.ts"
 import { generateThreadTitle } from "../threadTitles.ts"
 
 // Fallback used only when a session carries an unknown role id; a valid role
@@ -189,6 +190,7 @@ export class MrrawbotAgent extends AbstractAgent {
         if (!project) throw new Error("Project not found for this thread.")
         changeTracker = await createChangeTracker({ threadId, runId, repoPath: project.repoPath })
         artifactTracker = await createArtifactTracker({ projectId: project.id, threadId, runId })
+        const uploadsDir = threadUploadsDir(project.id, threadId)
 
         const isProductDesign = thread.kind === "product-design"
         const session =
@@ -359,6 +361,7 @@ export class MrrawbotAgent extends AbstractAgent {
             projectId: project.id,
             repoPath: project.repoPath,
             repoName: project.repoName,
+            uploadsDir,
             artifactsWorkspace: projectArtifactsDir(project.id),
             session,
             persona,
@@ -372,6 +375,7 @@ export class MrrawbotAgent extends AbstractAgent {
             flow: flow!,
             repoPath: project.repoPath,
             repoName: project.repoName,
+            uploadsDir,
             designWorkspace: projectArtifactsDir(project.id),
             artifactsContext: await buildArtifactContext(threadId),
             task,

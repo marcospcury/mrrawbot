@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import type { ReactNode } from "react"
+import type { ChangeEvent, ReactNode } from "react"
 import {
   Bot,
   Brain,
   Check,
   ChevronDown,
   FileText,
+  Plus,
   Paperclip,
   PenTool,
   Settings2,
@@ -28,6 +29,14 @@ import {
   type SessionConfig,
   type Thread,
 } from "@shared/types"
+import {
+  ALLOWED_ATTACHMENT_EXTENSIONS,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENTS,
+  type PromptAttachmentUploadResponse,
+  type PromptAttachmentKind,
+  inferPromptAttachmentKind,
+} from "@shared/attachments"
 import { ModelCombobox } from "@/components/model-combobox"
 import { ProviderPill } from "@/components/provider-pill"
 import { Button } from "@/components/ui/button"
@@ -42,8 +51,19 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRunConfig, type RunConfig } from "@/hooks/use-run-config"
+import { api } from "@/lib/api"
 import { useProjectArtifacts, useSetThreadArtifacts, useThreadArtifacts } from "@/lib/queries"
 import { cn } from "@/lib/utils"
+
+type StagedFile = {
+  id: string
+  file: File
+  name: string
+  size: number
+  kind: PromptAttachmentKind
+  status?: "ready" | "error"
+  error?: string
+}
 
 export function Composer({
   thread,
@@ -79,12 +99,17 @@ export function Composer({
   const isProductDesign = thread.kind === "product-design"
   const [text, setText] = useState("")
   const [isComposing, setIsComposing] = useState(false)
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
+  const [fileAttachmentErrors, setFileAttachmentErrors] = useState<string[]>([])
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const chatContext = useChatContext()
   const run = useRunConfig({ flows, flowId, session, onChangeRun })
-  const canSend = chatReady && !inProgress && text.trim().length > 0
+  const canSend = chatReady && !inProgress && !isUploadingAttachments && text.trim().length > 0
   const canStop = inProgress
   const sendDisabled = !canSend && !canStop
+  const isAttachingDisabled = inProgress || isUploadingAttachments
   const buttonIcon = !chatReady
     ? chatContext.icons.spinnerIcon
     : inProgress
@@ -109,12 +134,78 @@ export function Composer({
     requestAnimationFrame(() => textareaRef.current?.focus())
   }, [prefill, onPrefillConsumed])
 
-  function send() {
+  async function onAttachFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.target.files ?? [])]
+    event.target.value = ""
+    if (files.length === 0 || isAttachingDisabled) return
+
+    setIsUploadingAttachments(true)
+    const accepted: StagedFile[] = []
+    const errors: string[] = []
+    let nextCount = stagedFiles.length
+
+    try {
+      for (const file of files) {
+        const reason = await validateAttachment(file, nextCount)
+        if (reason) {
+          errors.push(reason)
+          continue
+        }
+        const staged = buildStagedFile(file)
+        if (!staged.ok) {
+          errors.push(staged.error)
+          continue
+        }
+        accepted.push(staged.value)
+        nextCount += 1
+      }
+    } finally {
+      setFileAttachmentErrors(errors)
+      if (accepted.length > 0) setStagedFiles((next) => [...next, ...accepted])
+      setIsUploadingAttachments(false)
+    }
+  }
+
+  function removeStagedFile(id: string) {
+    setStagedFiles((next) => next.filter((file) => file.id !== id))
+  }
+
+  function openAttachmentPicker() {
+    if (isAttachingDisabled) return
+    fileInputRef.current?.click()
+  }
+
+  async function send() {
     const message = text.trim()
-    if (!message || inProgress) return
-    onSend(message)
-    setText("")
-    requestAnimationFrame(() => textareaRef.current?.focus())
+    if (!message || inProgress || isUploadingAttachments) return
+
+    if (stagedFiles.length === 0) {
+      try {
+        await onSend(message)
+        setFileAttachmentErrors([])
+        setText("")
+        requestAnimationFrame(() => textareaRef.current?.focus())
+      } catch (err) {
+        setFileAttachmentErrors([errorMessage(err)])
+      }
+      return
+    }
+
+    setFileAttachmentErrors([])
+    setIsUploadingAttachments(true)
+    try {
+      const attachments = await uploadStagedFiles(thread.id, stagedFiles)
+      const finalMessage = `${message}\n\n${formatAttachedFiles(attachments)}`
+      await onSend(finalMessage)
+      setText("")
+      setStagedFiles([])
+      setFileAttachmentErrors([])
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    } catch (err) {
+      setFileAttachmentErrors([errorMessage(err)])
+    } finally {
+      setIsUploadingAttachments(false)
+    }
   }
 
   function selectFlowMode() {
@@ -127,7 +218,17 @@ export function Composer({
   return (
     <div className="copilotKitInputContainer">
       <div className="mrr-composer">
-        {!isProductDesign && <AttachedArtifactChips thread={thread} />}
+        {!isProductDesign && (
+          <>
+            <AttachedArtifactChips thread={thread} />
+            <AttachedFileChips
+              files={stagedFiles}
+              errors={fileAttachmentErrors}
+              onRemove={removeStagedFile}
+              isDisabled={isAttachingDisabled}
+            />
+          </>
+        )}
         <div className="mrr-composer-main">
           <textarea
             ref={textareaRef}
@@ -192,6 +293,30 @@ export function Composer({
             </>
           )}
           {!isProductDesign && <AttachArtifactsPill thread={thread} />}
+          {!isProductDesign && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="sr-only"
+                accept={attachmentInputAccept}
+                onChange={onAttachFiles}
+                disabled={isAttachingDisabled}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                className="rounded-full text-[11px]"
+                disabled={isAttachingDisabled}
+                onClick={openAttachmentPicker}
+              >
+                <Plus className="size-3" />
+                <span className="mrr-pill-label">Add</span>
+              </Button>
+            </>
+          )}
           <div className="copilotKitInputControls mrr-composer-send">
             <button
               type="button"
@@ -208,6 +333,178 @@ export function Composer({
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+const attachmentInputAccept = Array.from(
+  new Set([
+    ...ALLOWED_ATTACHMENT_EXTENSIONS.text,
+    ...ALLOWED_ATTACHMENT_EXTENSIONS.data,
+    ...ALLOWED_ATTACHMENT_EXTENSIONS.image,
+    ...ALLOWED_ATTACHMENT_EXTENSIONS.pdf,
+  ]),
+)
+  .map((ext) => `.${ext}`)
+  .join(",")
+
+function formatAttachmentSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  if (bytes === 0) return "0 B"
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** exponent
+  return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message
+  return "Unable to send message with attachments. Please retry."
+}
+
+function getFileExtension(filename: string): string {
+  const dotIndex = filename.lastIndexOf(".")
+  if (dotIndex < 0) return ""
+  return filename.slice(dotIndex + 1).toLowerCase()
+}
+
+function formatAttachedFiles(attachments: PromptAttachmentUploadResponse[]): string {
+  const lines = attachments.map((attachment) => `- ${attachment.absolutePath} (${attachment.kind})`)
+  return `# Attached files\n${lines.join("\n")}`
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error(`Could not read "${file.name}".`))
+        return
+      }
+      resolve(reader.result)
+    }
+    reader.onerror = () => {
+      reject(reader.error ?? new Error(`Could not read "${file.name}".`))
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+function fileToBase64DataUrl(file: File): Promise<string> {
+  return fileToDataUrl(file).then((dataUrl) => {
+    const commaIndex = dataUrl.indexOf(",")
+    if (commaIndex < 0) throw new Error(`Cannot add "${file.name}": unable to read file bytes.`)
+    return dataUrl.slice(commaIndex + 1)
+  })
+}
+
+async function uploadStagedFiles(
+  threadId: string,
+  files: StagedFile[],
+): Promise<PromptAttachmentUploadResponse[]> {
+  const uploaded: PromptAttachmentUploadResponse[] = []
+  for (const staged of files) {
+    const dataBase64 = await fileToBase64DataUrl(staged.file)
+    const response = await api.uploadThreadFile(threadId, {
+      filename: staged.name,
+      mimeType: staged.file.type || null,
+      dataBase64: dataBase64,
+    }).catch((err) => {
+      throw new Error(`Cannot upload "${staged.name}": ${errorMessage(err)}`)
+    })
+    uploaded.push(response)
+  }
+  return uploaded
+}
+
+async function validateAttachment(file: File, existingCount: number): Promise<string | null> {
+  if (existingCount >= MAX_ATTACHMENTS) {
+    return `Cannot add "${file.name}": you can attach at most ${MAX_ATTACHMENTS} files.`
+  }
+  if (file.size === 0) {
+    return `Cannot add "${file.name}": file is empty and cannot be uploaded.`
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    return `Cannot add "${file.name}": file exceeds the ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB limit.`
+  }
+  const kind = inferPromptAttachmentKind(file.name, file.type)
+  if (!kind) {
+    return `Cannot add "${file.name}": unsupported type "${file.type || getFileExtension(file.name) || "unknown"}".`
+  }
+  try {
+    const preview = await file.slice(0, 1).arrayBuffer()
+    if (preview.byteLength === 0) {
+      return `Cannot add "${file.name}": unable to read file bytes.`
+    }
+  } catch {
+    return `Cannot add "${file.name}": unable to read file bytes.`
+  }
+  return null
+}
+
+function buildStagedFile(file: File): { ok: true; value: StagedFile } | { ok: false; error: string } {
+  const kind = inferPromptAttachmentKind(file.name, file.type)
+  if (!kind) return { ok: false, error: `Cannot add "${file.name}": unsupported type "${file.type || getFileExtension(file.name) || "unknown"}".` }
+
+  return {
+    ok: true,
+    value: {
+      id: crypto.randomUUID(),
+      file,
+      name: file.name,
+      size: file.size,
+      kind,
+      status: "ready",
+    },
+  }
+}
+
+function AttachedFileChips({
+  files,
+  errors,
+  onRemove,
+  isDisabled,
+}: {
+  files: StagedFile[]
+  errors: string[]
+  onRemove: (id: string) => void
+  isDisabled: boolean
+}) {
+  if (files.length === 0 && errors.length === 0) return null
+
+  return (
+    <div className="px-3 pt-2">
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {files.map((file) => (
+            <span
+              key={file.id}
+              className="inline-flex max-w-[18rem] items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              <FileText className="size-3 shrink-0" />
+              <span className="truncate">{file.name}</span>
+              <span className="shrink-0 text-muted-foreground/75">({formatAttachmentSize(file.size)})</span>
+              <button
+                type="button"
+                aria-label={`Remove ${file.name}`}
+                className="shrink-0 rounded-full hover:text-foreground disabled:opacity-50"
+                disabled={isDisabled}
+                onClick={() => onRemove(file.id)}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {errors.length > 0 && (
+        <div className="mt-1 space-y-1 text-xs text-destructive">
+          {errors.map((error) => (
+            <p key={error} className="truncate">
+              {error}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
