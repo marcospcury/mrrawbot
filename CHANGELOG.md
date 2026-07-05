@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/marcospcury/mrrawbot/compare/v1.4.0...v1.5.0) (2026-07-05)
+
+
+### Features
+
+* UI/UX batch — git workflow, sidebar folders, workspace views, themes, and reicon icons ([#12](https://github.com/marcospcury/mrrawbot/issues/12)) ([7735928](https://github.com/marcospcury/mrrawbot/commit/7735928c19d981985d127456abeb68247ff1f70c))
+
 ## [1.4.0](https://github.com/marcospcury/mrrawbot/compare/v1.3.0...v1.4.0) (2026-07-05)
 
 
