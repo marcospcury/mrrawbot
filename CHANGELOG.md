@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/marcospcury/mrrawbot/compare/v1.5.0...v1.6.0) (2026-07-05)
+
+
+### Features
+
+* scope artifacts to the producing thread's sidebar folder ([cb161a1](https://github.com/marcospcury/mrrawbot/commit/cb161a1e02d2967547790325cf84b699a66ea97b))
+
+
+### Bug Fixes
+
+* point prototype preview at the artifacts endpoint ([d48ff51](https://github.com/marcospcury/mrrawbot/commit/d48ff5142e706fb59851db191f46897e625e40ec))
+* ship only server runtime deps in the packaged app ([eed84d1](https://github.com/marcospcury/mrrawbot/commit/eed84d1e7d253666d1ca1823735c3109356f2a22))
+
 ## [1.5.0](https://github.com/marcospcury/mrrawbot/compare/v1.4.0...v1.5.0) (2026-07-05)
 
 
