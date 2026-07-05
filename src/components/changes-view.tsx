@@ -4,9 +4,8 @@ import type { Extension } from "@codemirror/state"
 import CodeMirror from "@uiw/react-codemirror"
 import { Loader2, TriangleAlert } from "lucide-react"
 import type { ThreadChange, ThreadChangeStatus } from "@shared/types"
-import { useTheme } from "@/components/theme-provider"
 import { Badge } from "@/components/ui/badge"
-import { createEditorTheme } from "@/lib/codemirror-theme"
+import { editorChrome, useEditorTheme } from "@/lib/editor-themes"
 import { useThreadChanges } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
@@ -95,8 +94,7 @@ function ChangeBadges({ change }: { change: ThreadChange }) {
 }
 
 function InlineDiff({ change }: { change: ThreadChange }) {
-  const { resolvedTheme } = useTheme()
-  const editorTheme = useMemo(() => createEditorTheme(resolvedTheme === "dark"), [resolvedTheme])
+  const editorTheme = useEditorTheme()
   const diff = useMemo(() => createDiff(change), [change])
   const extensions = useMemo<Extension[]>(
     () => [
@@ -107,6 +105,7 @@ function InlineDiff({ change }: { change: ThreadChange }) {
         highlightChanges: true,
         collapseUnchanged: { margin: 3, minSize: 8 },
       }),
+      editorChrome,
     ],
     [diff.original],
   )

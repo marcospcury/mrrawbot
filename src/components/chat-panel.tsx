@@ -307,10 +307,12 @@ function EditableTitle({
     )
   }
 
+  // Size the click target to the title text — only the title itself should be
+  // clickable, not the whole empty stretch of header next to it.
   return (
     <button
       onClick={() => setEditing(true)}
-      className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
+      className="min-w-0 max-w-full shrink truncate rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
       title="Click to rename"
     >
       {title}

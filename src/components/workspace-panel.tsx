@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react"
-import { FolderTree, GitCompareArrows, PenTool } from "lucide-react"
+import { useEffect } from "react"
+import { ArrowLeftToLine, FolderTree, GitCompareArrows, MessageSquare, PenTool } from "lucide-react"
 import { ChangesView } from "@/components/changes-view"
 import { ArtifactsTab } from "@/components/artifacts-tab"
 import { FileTree } from "@/components/file-tree"
 import { FileViewer } from "@/components/file-viewer"
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { usePersisted } from "@/hooks/use-persisted"
 import { useProjectArtifacts, useProjects } from "@/lib/queries"
+import { cn } from "@/lib/utils"
 
 // "design" is the persisted tab id for the Artifacts tab (kept for back-compat
 // with saved mrr.workspace.tab values).
@@ -20,6 +22,12 @@ interface WorkspacePanelProps {
   threadId: string
   tab: WorkspaceTab
   onTabChange: (tab: WorkspaceTab) => void
+  /** "side" is the right panel; "main" temporarily replaces the chat view. */
+  location?: "side" | "main"
+  selectedPath: string | null
+  onSelectPath: (path: string | null) => void
+  onOpenInMain?: () => void
+  onExitMain?: () => void
   openDesignSlug: string | null
   onOpenDesign: (slug: string | null) => void
   onSelectThread?: (threadId: string) => void
@@ -31,6 +39,11 @@ export function WorkspacePanel({
   threadId,
   tab,
   onTabChange,
+  location = "side",
+  selectedPath,
+  onSelectPath,
+  onOpenInMain,
+  onExitMain,
   openDesignSlug,
   onOpenDesign,
   onSelectThread,
@@ -39,8 +52,7 @@ export function WorkspacePanel({
   const projects = useProjects()
   const project = projects.data?.find((p) => p.id === projectId) ?? null
   const hasRepository = Boolean(project?.repoPath.trim())
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [viewerExpanded, setViewerExpanded] = useState(false)
+  const isMain = location === "main"
 
   // A dot on the Artifacts tab when artifacts landed since it was last viewed.
   const artifacts = useProjectArtifacts(hasRepository ? projectId : null)
@@ -53,14 +65,9 @@ export function WorkspacePanel({
       setDesignsSeen({ ...designsSeen, [projectId]: latestArtifactAt })
   }, [tab, latestArtifactAt, projectId, designsSeen, setDesignsSeen])
 
-  useEffect(() => {
-    setSelectedPath(null)
-    setViewerExpanded(false)
-  }, [projectId])
-
   return (
     <aside
-      className="flex h-full min-w-0 flex-col border-l bg-background"
+      className={cn("flex h-full min-w-0 flex-col bg-background", !isMain && "border-l")}
       data-project-id={projectId}
       data-thread-id={threadId}
     >
@@ -70,7 +77,7 @@ export function WorkspacePanel({
         </div>
       ) : (
         <Tabs value={tab} onValueChange={(v) => onTabChange(v as WorkspaceTab)} className="flex h-full min-h-0 flex-col gap-0">
-          <header className="mrr-header flex min-h-12 shrink-0 items-center border-b px-3">
+          <header className="mrr-header flex min-h-12 shrink-0 items-center gap-2 border-b px-3">
             <TabsList className="h-8">
               <TabsTrigger value="files" className="gap-1.5">
                 <FolderTree className="size-4" />
@@ -91,27 +98,49 @@ export function WorkspacePanel({
                 )}
               </TabsTrigger>
             </TabsList>
+            <div className="ml-auto flex items-center gap-1">
+              {isMain ? (
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onExitMain}>
+                  <MessageSquare className="size-3.5" />
+                  Back to chat
+                </Button>
+              ) : (
+                onOpenInMain && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground"
+                        aria-label="Open in main view"
+                        onClick={onOpenInMain}
+                      >
+                        <ArrowLeftToLine className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open in main view</TooltipContent>
+                  </Tooltip>
+                )
+              )}
+            </div>
           </header>
 
           <TabsContent value="files" className="min-h-0 overflow-hidden">
             {selectedPath ? (
-              <ResizablePanelGroup orientation="vertical" className="h-full min-h-0">
+              // The narrow side panel stacks tree above viewer; the main view
+              // has the width for a proper tree-left / viewer-right layout.
+              <ResizablePanelGroup orientation={isMain ? "horizontal" : "vertical"} className="h-full min-h-0">
                 {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
-                <ResizablePanel id="file-tree" minSize="20%" defaultSize="40%">
-                  <FileTree projectId={projectId} selectedPath={selectedPath} onSelectFile={setSelectedPath} />
+                <ResizablePanel id="file-tree" minSize="15%" defaultSize={isMain ? "26%" : "40%"}>
+                  <FileTree projectId={projectId} selectedPath={selectedPath} onSelectFile={onSelectPath} />
                 </ResizablePanel>
                 <ResizableHandle withHandle />
-                <ResizablePanel id="file-viewer" minSize="30%" defaultSize="60%">
-                  <FileViewer
-                    projectId={projectId}
-                    path={selectedPath}
-                    onClose={() => setSelectedPath(null)}
-                    onExpand={() => setViewerExpanded(true)}
-                  />
+                <ResizablePanel id="file-viewer" minSize="30%" defaultSize={isMain ? "74%" : "60%"}>
+                  <FileViewer projectId={projectId} path={selectedPath} onClose={() => onSelectPath(null)} />
                 </ResizablePanel>
               </ResizablePanelGroup>
             ) : (
-              <FileTree projectId={projectId} selectedPath={selectedPath} onSelectFile={setSelectedPath} />
+              <FileTree projectId={projectId} selectedPath={selectedPath} onSelectFile={onSelectPath} />
             )}
           </TabsContent>
 
@@ -132,19 +161,6 @@ export function WorkspacePanel({
           </TabsContent>
         </Tabs>
       )}
-
-      <Dialog open={viewerExpanded} onOpenChange={setViewerExpanded}>
-        <DialogContent
-          showCloseButton={false}
-          className="flex h-[88vh] w-[min(96vw,1400px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
-        >
-          <DialogTitle className="sr-only">File viewer</DialogTitle>
-          <DialogDescription className="sr-only">{selectedPath ?? ""}</DialogDescription>
-          {viewerExpanded && (
-            <FileViewer projectId={projectId} path={selectedPath} onClose={() => setViewerExpanded(false)} />
-          )}
-        </DialogContent>
-      </Dialog>
     </aside>
   )
 }

@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from "react"
-import { ChevronRight, File, Folder, FolderOpen } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import type { FileTreeEntry } from "@shared/types"
+import { useAppearance } from "@/components/appearance-provider"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { FileIcon } from "@/lib/file-icons"
 import { useProjectFiles } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
@@ -100,6 +102,7 @@ function TreeRow({
   onSelectFile: (path: string) => void
   projectId: string
 }) {
+  const { fileIconTheme } = useAppearance()
   const isDirectory = entry.type === "dir"
   const isOpen = isDirectory && expanded.has(entry.path)
   const isSelected = entry.type === "file" && entry.path === selectedPath
@@ -125,15 +128,7 @@ function TreeRow({
         ) : (
           <span className="size-4 shrink-0" />
         )}
-        {isDirectory ? (
-          isOpen ? (
-            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <Folder className="size-4 shrink-0 text-muted-foreground" />
-          )
-        ) : (
-          <File className="size-4 shrink-0 text-muted-foreground" />
-        )}
+        <FileIcon name={entry.name} type={entry.type} open={isOpen} theme={fileIconTheme} />
         <span className="truncate">{entry.name}</span>
       </button>
       {isOpen && (

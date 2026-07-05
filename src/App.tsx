@@ -44,6 +44,10 @@ export default function App() {
   const [workspaceOpen, setWorkspaceOpen] = usePersisted("mrr.workspace.open", false)
   const [workspaceSize, setWorkspaceSize] = usePersisted("mrr.workspace.size", 32)
   const [workspaceTab, setWorkspaceTab] = usePersisted<WorkspaceTab>("mrr.workspace.tab", "files")
+  // Workspace shown full-size in the main container, temporarily replacing the
+  // chat view (the chat stays mounted underneath so live runs keep streaming).
+  const [workspaceInMain, setWorkspaceInMain] = useState(false)
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [openDesignSlug, setOpenDesignSlug] = useState<string | null>(null)
   const [persona, setPersona] = useState<ProductDesignPersona>("auto")
   const [composerPrefill, setComposerPrefill] = useState<string | null>(null)
@@ -95,6 +99,8 @@ export default function App() {
   function selectProject(id: string) {
     setActiveProjectId(id)
     setOpenDesignSlug(null)
+    setSelectedFilePath(null)
+    setWorkspaceInMain(false)
   }
 
   // A run just landed artifacts: surface them like a delivered artifact —
@@ -203,57 +209,88 @@ export default function App() {
             }}
             showDevConsole={false}
           >
-            <ResizablePanelGroup
-              orientation="horizontal"
-              className="h-full"
-              // Persist the split only when the user releases the drag — a
-              // per-frame setState here re-renders the whole chat + workspace
-              // tree mid-drag and makes resizing feel janky.
-              onLayoutChanged={(layout, meta) => {
-                const size = layout["workspace"]
-                if (meta.isUserInteraction && typeof size === "number") setWorkspaceSize(Math.round(size))
-              }}
-            >
-              {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
-              <ResizablePanel id="chat" minSize="25%" defaultSize={workspaceOpen ? `${100 - workspaceSize}%` : "100%"}>
-                <ChatPanel
-                  project={activeProject}
-                  thread={activeThread}
-                  flows={flows.data ?? []}
-                  flowId={runDraft?.flowId ?? null}
-                  session={runDraft?.session ?? null}
-                  workspaceOpen={workspaceOpen}
-                  onToggleWorkspace={() => setWorkspaceOpen(!workspaceOpen)}
-                  onRenameThread={renameThread}
-                  onChangeRun={changeRun}
-                  onManageFlows={() => setDialog("flows")}
-                  onArtifactsLanded={artifactsLanded}
-                  persona={persona}
-                  onPersonaChange={setPersona}
-                  prefill={composerPrefill}
-                  onPrefillConsumed={() => setComposerPrefill(null)}
-                />
-              </ResizablePanel>
-              {workspaceOpen && (
-                <>
-                  <ResizableHandle />
-                  <ResizablePanel id="workspace" minSize="24%" maxSize="75%" defaultSize={`${workspaceSize}%`}>
-                    <Suspense fallback={null}>
-                      <WorkspacePanel
-                        projectId={activeProject.id}
-                        threadId={activeThread.id}
-                        tab={workspaceTab}
-                        onTabChange={setWorkspaceTab}
-                        openDesignSlug={openDesignSlug}
-                        onOpenDesign={setOpenDesignSlug}
-                        onSelectThread={selectThread}
-                        onStartBuildThread={startBuildThread}
-                      />
-                    </Suspense>
-                  </ResizablePanel>
-                </>
+            <div className="relative h-full">
+              <ResizablePanelGroup
+                orientation="horizontal"
+                className="h-full"
+                // Persist the split only when the user releases the drag — a
+                // per-frame setState here re-renders the whole chat + workspace
+                // tree mid-drag and makes resizing feel janky.
+                onLayoutChanged={(layout, meta) => {
+                  const size = layout["workspace"]
+                  if (meta.isUserInteraction && typeof size === "number") setWorkspaceSize(Math.round(size))
+                }}
+              >
+                {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
+                <ResizablePanel id="chat" minSize="25%" defaultSize={workspaceOpen ? `${100 - workspaceSize}%` : "100%"}>
+                  <ChatPanel
+                    project={activeProject}
+                    thread={activeThread}
+                    flows={flows.data ?? []}
+                    flowId={runDraft?.flowId ?? null}
+                    session={runDraft?.session ?? null}
+                    workspaceOpen={workspaceOpen}
+                    onToggleWorkspace={() => setWorkspaceOpen(!workspaceOpen)}
+                    onRenameThread={renameThread}
+                    onChangeRun={changeRun}
+                    onManageFlows={() => setDialog("flows")}
+                    onArtifactsLanded={artifactsLanded}
+                    persona={persona}
+                    onPersonaChange={setPersona}
+                    prefill={composerPrefill}
+                    onPrefillConsumed={() => setComposerPrefill(null)}
+                  />
+                </ResizablePanel>
+                {workspaceOpen && !workspaceInMain && (
+                  <>
+                    <ResizableHandle />
+                    <ResizablePanel id="workspace" minSize="24%" maxSize="75%" defaultSize={`${workspaceSize}%`}>
+                      <Suspense fallback={null}>
+                        <WorkspacePanel
+                          projectId={activeProject.id}
+                          threadId={activeThread.id}
+                          tab={workspaceTab}
+                          onTabChange={setWorkspaceTab}
+                          selectedPath={selectedFilePath}
+                          onSelectPath={setSelectedFilePath}
+                          onOpenInMain={() => setWorkspaceInMain(true)}
+                          openDesignSlug={openDesignSlug}
+                          onOpenDesign={setOpenDesignSlug}
+                          onSelectThread={selectThread}
+                          onStartBuildThread={startBuildThread}
+                        />
+                      </Suspense>
+                    </ResizablePanel>
+                  </>
+                )}
+              </ResizablePanelGroup>
+              {workspaceInMain && (
+                <div className="absolute inset-0 z-10 bg-background">
+                  <Suspense fallback={null}>
+                    <WorkspacePanel
+                      projectId={activeProject.id}
+                      threadId={activeThread.id}
+                      tab={workspaceTab}
+                      onTabChange={setWorkspaceTab}
+                      location="main"
+                      selectedPath={selectedFilePath}
+                      onSelectPath={setSelectedFilePath}
+                      onExitMain={() => setWorkspaceInMain(false)}
+                      openDesignSlug={openDesignSlug}
+                      onOpenDesign={setOpenDesignSlug}
+                      onSelectThread={(id) => {
+                        setWorkspaceInMain(false)
+                        selectThread(id)
+                      }}
+                      onStartBuildThread={(prompt) => {
+                        setWorkspaceInMain(false)
+                        void startBuildThread(prompt)
+                      }}
+                    />
+                  </Suspense>
+                </div>
               )}
-            </ResizablePanelGroup>
+            </div>
           </CopilotKit>
         ) : (
           <WelcomeScreen

@@ -82,6 +82,41 @@ describe("project Git status", () => {
     await expect(service.createBranch(project(repoPath), "bad branch")).rejects.toThrow("Invalid branch name")
     await expect(service.createBranch(project(repoPath), "main")).rejects.toThrow("Branch already exists")
   })
+
+  it("creates branches from origin/<default> without tracking it", async () => {
+    const repoPath = path.join(tempDir, "repo")
+    const originPath = path.join(tempDir, "origin.git")
+    await initRepo(repoPath)
+    await pexec("git", ["init", "--bare", originPath])
+    await pexec("git", ["remote", "add", "origin", originPath], { cwd: repoPath })
+    await pexec("git", ["push", "-u", "origin", "main"], { cwd: repoPath })
+
+    const service = makeProjectGitService()
+    const status = await service.createBranch(project(repoPath), "feat/from-origin")
+
+    expect(status.branch).toBe("feat/from-origin")
+    // Tracking origin/main would make a later plain `git push` refuse to push.
+    await expect(
+      pexec("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], { cwd: repoPath }),
+    ).rejects.toThrow()
+    expect(status.hasUpstream).toBe(false)
+  })
+
+  it("lists local branch statuses with current and default flags", async () => {
+    const repoPath = path.join(tempDir, "repo")
+    await initRepo(repoPath)
+    await pexec("git", ["branch", "feat/topic"], { cwd: repoPath })
+
+    const service = makeProjectGitService()
+    const branches = await service.listBranchStatuses(project(repoPath))
+
+    expect(branches).toContainEqual(
+      expect.objectContaining({ name: "main", isCurrent: true, isDefault: true, exists: true, pullRequest: null }),
+    )
+    expect(branches).toContainEqual(
+      expect.objectContaining({ name: "feat/topic", isCurrent: false, isDefault: false, exists: true }),
+    )
+  })
 })
 
 describe("project GitHub integration", () => {
@@ -246,6 +281,44 @@ describe("project Git actions", () => {
     expect(status.ahead).toBe(0)
   })
 
+  it("pushes explicitly when the upstream points at another branch", async () => {
+    // A feature branch created (pre --no-track fix) from origin/main tracks
+    // origin/main; a plain `git push` would refuse. Expect the explicit form.
+    const events: string[] = []
+    const service = makeProjectGitService({
+      runCommand: fakeGitRunner(events, { ahead: 1, upstream: "origin/main", remoteUrl: nonGitHubRemote }),
+    })
+
+    const status = await service.pushCurrentBranch(project("/repo"))
+
+    expect(events).toContain("push-upstream")
+    expect(status.ahead).toBe(0)
+  })
+
+  it("pulls the current branch fast-forward when it is behind", async () => {
+    const events: string[] = []
+    const service = makeProjectGitService({
+      runCommand: fakeGitRunner(events, { ahead: 0, behind: 2, remoteUrl: nonGitHubRemote }),
+    })
+
+    const status = await service.pullCurrentBranch(project("/repo"))
+
+    expect(events).toContain("pull:origin feat/git-header")
+    expect(status.behind).toBe(0)
+  })
+
+  it("refuses to pull with local changes or without an upstream", async () => {
+    const dirty = makeProjectGitService({
+      runCommand: fakeGitRunner([], { dirty: true, behind: 1, remoteUrl: nonGitHubRemote }),
+    })
+    await expect(dirty.pullCurrentBranch(project("/repo"))).rejects.toThrow("local changes")
+
+    const noUpstream = makeProjectGitService({
+      runCommand: fakeGitRunner([], { hasUpstream: false, remoteBranches: ["main"], remoteUrl: nonGitHubRemote }),
+    })
+    await expect(noUpstream.pullCurrentBranch(project("/repo"))).rejects.toThrow("no upstream")
+  })
+
   it("checks out default, pulls latest, and deletes the merged local branch safely", async () => {
     const events: string[] = []
     const service = makeProjectGitService({
@@ -292,6 +365,8 @@ interface FakeGitOptions {
   ahead?: number
   behind?: number
   hasUpstream?: boolean
+  /** Upstream ref; defaults to origin/<branch>. */
+  upstream?: string
   localBranches?: string[]
   remoteBranches?: string[]
   remoteUrl?: string | null
@@ -303,6 +378,7 @@ function fakeGitRunner(events: string[] = [], options: FakeGitOptions = {}): Com
   let ahead = options.ahead ?? 1
   let behind = options.behind ?? 0
   let hasUpstream = options.hasUpstream ?? true
+  let upstreamOverride = options.upstream ?? null
   const localBranches = new Set(options.localBranches ?? ["main", branch])
   const remoteBranches = new Set(options.remoteBranches ?? ["main", branch])
   const remoteUrl = options.remoteUrl === undefined ? "git@github.com:acme/repo.git" : options.remoteUrl
@@ -325,10 +401,10 @@ function fakeGitRunner(events: string[] = [], options: FakeGitOptions = {}): Com
     if (key === "symbolic-ref --short refs/remotes/origin/HEAD") return { stdout: "origin/main\n", stderr: "" }
     if (key === "rev-parse --abbrev-ref --symbolic-full-name @{upstream}") {
       if (!hasUpstream) throw new Error("missing upstream")
-      return { stdout: `origin/${branch}\n`, stderr: "" }
+      return { stdout: `${upstreamOverride ?? `origin/${branch}`}\n`, stderr: "" }
     }
-    if (key === `rev-parse origin/${branch}`) return { stdout: "remote123\n", stderr: "" }
-    if (key === `rev-list --left-right --count origin/${branch}...HEAD`) {
+    if (key.startsWith("rev-parse origin/")) return { stdout: "remote123\n", stderr: "" }
+    if (key.startsWith("rev-list --left-right --count ")) {
       return { stdout: `${behind}\t${ahead}\n`, stderr: "" }
     }
     if (key === "fetch --prune origin") {
@@ -379,10 +455,16 @@ function fakeGitRunner(events: string[] = [], options: FakeGitOptions = {}): Com
       localBranches.delete("feat/git-header")
       return { stdout: "", stderr: "" }
     }
+    if (key.startsWith("pull --ff-only ")) {
+      events.push(`pull:${key.slice("pull --ff-only ".length)}`)
+      behind = 0
+      return { stdout: "", stderr: "" }
+    }
     if (key === `push -u origin HEAD:refs/heads/${branch}`) {
       events.push("push-upstream")
       events.push("push")
       hasUpstream = true
+      upstreamOverride = `origin/${branch}`
       remoteBranches.add(branch)
       ahead = 0
       return { stdout: "", stderr: "" }

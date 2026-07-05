@@ -8,6 +8,7 @@ import { agentsRouter } from "./agents.ts"
 import { artifactsRouter } from "./artifacts.ts"
 import { filesRouter } from "./files.ts"
 import { flowsRouter } from "./flows.ts"
+import { foldersRouter } from "./folders.ts"
 import { projectsRouter } from "./projects.ts"
 import { providersRouter } from "./providers.ts"
 import { projectGitRouter } from "./projectGit.ts"
@@ -49,6 +50,7 @@ export function makeApiRouter(): Router {
   r.use("/", filesRouter)
   r.use("/", uploadsRouter)
   r.use("/", threadsRouter)
+  r.use("/", foldersRouter)
 
   return r
 }

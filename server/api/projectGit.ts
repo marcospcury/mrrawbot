@@ -75,6 +75,16 @@ projectGitRouter.post(
 )
 
 projectGitRouter.post(
+  "/projects/:id/git/pull",
+  projectJson((selectedProject) => projectGitService.pullCurrentBranch(selectedProject)),
+)
+
+projectGitRouter.get(
+  "/projects/:id/git/branches",
+  projectJson((selectedProject) => projectGitService.listBranchStatuses(selectedProject)),
+)
+
+projectGitRouter.post(
   "/projects/:id/git/checkout-default",
   projectJson((selectedProject) => projectGitService.checkoutDefaultBranch(selectedProject)),
 )

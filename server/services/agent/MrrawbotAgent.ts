@@ -16,7 +16,7 @@ import { getFlow } from "../../db/repos/flows.ts"
 import { getProject } from "../../db/repos/projects.ts"
 import { saveRun } from "../../db/repos/runs.ts"
 import { saveMessage } from "../../db/repos/messages.ts"
-import { autoNameThread, getThread, threadCanAutoName } from "../../db/repos/threads.ts"
+import { autoNameThread, getThread, threadCanAutoName, touchThread } from "../../db/repos/threads.ts"
 import { providerLabel } from "../providers/status.ts"
 import { resolveFlowSteps, runFlow } from "../orchestrator/engine.ts"
 import { runProductDesignTurn } from "../orchestrator/productDesign.ts"
@@ -225,6 +225,7 @@ export class MrrawbotAgent extends AbstractAgent {
           role: "user",
           content: task,
         })
+        touchThread(threadId)
 
         // Build conversation history from earlier messages.
         const priorMessages = messages.filter((m) => m !== lastUser && (m.role === "user" || m.role === "assistant"))
@@ -233,6 +234,11 @@ export class MrrawbotAgent extends AbstractAgent {
           .filter((l) => l.length > 6)
           .slice(-12)
           .join("\n\n")
+
+        // Auto-name the thread as soon as its first user message lands —
+        // waiting for the run to finish leaves "New thread" up for the whole
+        // run. The post-run call below is only a retry with richer context.
+        const earlyAutoNaming = autoNameThreadAfterRun({ threadId, task, history, finalText: "", signal: ac.signal })
 
         // Initial run state with every step pending. Product Design turns start
         // with no pre-declared steps — persona steps are synthesized from
@@ -407,6 +413,7 @@ export class MrrawbotAgent extends AbstractAgent {
 
         saveMessage({ id: assistantMsgId, threadId, role: "assistant", content: finalText, runId })
         saveRun(runState, assistantMsgId)
+        await earlyAutoNaming
         await autoNameThreadAfterRun({ threadId, task, history, finalText, signal: ac.signal })
 
         emit({ type: EventType.RUN_FINISHED, threadId, runId } as unknown as BaseEvent)

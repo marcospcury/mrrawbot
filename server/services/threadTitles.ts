@@ -63,7 +63,8 @@ export async function generateThreadTitle(input: {
   const prompt = [
     input.history.trim() ? `Conversation so far:\n${clip(input.history, 2000)}` : "",
     `Latest user request:\n${clip(input.task, 2000)}`,
-    `Assistant result:\n${clip(input.finalAnswer, 2000)}`,
+    // Naming can run before the assistant has answered (first-message naming).
+    input.finalAnswer.trim() ? `Assistant result:\n${clip(input.finalAnswer, 2000)}` : "",
   ]
     .filter(Boolean)
     .join("\n\n")

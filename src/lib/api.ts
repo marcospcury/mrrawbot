@@ -13,6 +13,7 @@ import type {
   ModelEntry,
   NewAgentConfig,
   NewFlowConfig,
+  ProjectBranchStatus,
   ProjectGitStatus,
   ProviderConfig,
   ProviderConfigPatch,
@@ -23,6 +24,7 @@ import type {
   SessionConfig,
   ThreadChange,
   Thread,
+  ThreadFolder,
   ThreadKind,
 } from "@shared/types"
 import type { PromptAttachmentUploadRequest, PromptAttachmentUploadResponse } from "@shared/attachments"
@@ -85,6 +87,10 @@ export const api = {
     }),
   pushProjectBranch: (projectId: string) =>
     request<ProjectGitStatus>(`/projects/${projectId}/git/push`, { method: "POST" }),
+  pullProjectBranch: (projectId: string) =>
+    request<ProjectGitStatus>(`/projects/${projectId}/git/pull`, { method: "POST" }),
+  listProjectBranches: (projectId: string) =>
+    request<ProjectBranchStatus[]>(`/projects/${projectId}/git/branches`),
   checkoutProjectDefaultBranch: (projectId: string) =>
     request<ProjectGitStatus>(`/projects/${projectId}/git/checkout-default`, { method: "POST" }),
   pullProjectDefaultBranch: (projectId: string) =>
@@ -135,7 +141,14 @@ export const api = {
   ) => request<Thread>(`/projects/${projectId}/threads`, { method: "POST", body: JSON.stringify(input) }),
   updateThread: (
     id: string,
-    input: { title?: string; archived?: boolean; flowId?: string | null; session?: SessionConfig | null },
+    input: {
+      title?: string
+      archived?: boolean
+      flowId?: string | null
+      session?: SessionConfig | null
+      branchName?: string | null
+      folderId?: string | null
+    },
   ) => request<Thread>(`/threads/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteThread: (id: string) => request<void>(`/threads/${id}`, { method: "DELETE" }),
   messages: (threadId: string) => request<ChatMessage[]>(`/threads/${threadId}/messages`),
@@ -154,6 +167,13 @@ export const api = {
   updateAgent: (id: string, input: NewAgentConfig) =>
     request<AgentConfig>(`/agents/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteAgent: (id: string) => request<void>(`/agents/${id}`, { method: "DELETE" }),
+
+  listFolders: (projectId: string) => request<ThreadFolder[]>(`/projects/${projectId}/folders`),
+  createFolder: (projectId: string, input: { name: string }) =>
+    request<ThreadFolder>(`/projects/${projectId}/folders`, { method: "POST", body: JSON.stringify(input) }),
+  renameFolder: (id: string, input: { name: string }) =>
+    request<ThreadFolder>(`/folders/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteFolder: (id: string) => request<void>(`/folders/${id}`, { method: "DELETE" }),
 
   listFlows: () => request<FlowConfig[]>("/flows"),
   createFlow: (input: NewFlowConfig) =>

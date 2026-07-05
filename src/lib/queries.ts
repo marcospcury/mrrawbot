@@ -17,7 +17,9 @@ export const qk = {
   models: ["models"] as const,
   projects: ["projects"] as const,
   projectGitStatus: (projectId: string) => ["project-git-status", projectId] as const,
+  projectBranches: (projectId: string) => ["project-branches", projectId] as const,
   projectPullRequest: (projectId: string) => ["project-pull-request", projectId] as const,
+  folders: (projectId: string) => ["folders", projectId] as const,
   projectFiles: (projectId: string, dir: string) => ["project-files", projectId, dir] as const,
   projectFile: (projectId: string, path: string) => ["project-file", projectId, path] as const,
   threads: (projectId: string, includeArchived: boolean) => ["threads", projectId, includeArchived] as const,
@@ -82,6 +84,16 @@ export function useProjectGitStatus(projectId: string | null) {
   })
 }
 
+export function useProjectBranches(projectId: string | null) {
+  return useQuery({
+    queryKey: qk.projectBranches(projectId ?? ""),
+    queryFn: () => api.listProjectBranches(projectId!),
+    enabled: !!projectId,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+}
+
 export function useProjectPullRequest(projectId: string | null, enabled = true) {
   return useQuery({
     queryKey: qk.projectPullRequest(projectId ?? ""),
@@ -103,6 +115,19 @@ export function useThreads(projectId: string | null, includeArchived: boolean) {
     queryKey: qk.threads(projectId ?? "", includeArchived),
     queryFn: () => api.listThreads(projectId!, includeArchived),
     enabled: !!projectId,
+    // Threads are auto-named as soon as their first user message is sent; poll
+    // briefly while a recently active thread is still unnamed so the generated
+    // title replaces "New thread" without waiting for the run to finish.
+    refetchInterval: (query) => {
+      const nameable = query.state.data?.some(
+        (t) =>
+          !t.archived &&
+          !t.titleManuallyEdited &&
+          !t.autoTitleGeneratedAt &&
+          Date.now() - new Date(t.updatedAt).getTime() < 10 * 60_000,
+      )
+      return nameable ? 4_000 : false
+    },
   })
 }
 
@@ -194,6 +219,7 @@ export function useProjectGitMutations(projectId: string | null) {
     if (!projectId) return
     qc.invalidateQueries({ queryKey: qk.projectGitStatus(projectId) })
     qc.invalidateQueries({ queryKey: qk.projectPullRequest(projectId) })
+    qc.invalidateQueries({ queryKey: qk.projectBranches(projectId) })
   }
   return {
     createBranch: useMutation({
@@ -206,6 +232,10 @@ export function useProjectGitMutations(projectId: string | null) {
     }),
     pushBranch: useMutation({
       mutationFn: () => api.pushProjectBranch(projectId!),
+      onSuccess: invalidate,
+    }),
+    pullBranch: useMutation({
+      mutationFn: () => api.pullProjectBranch(projectId!),
       onSuccess: invalidate,
     }),
     checkoutDefaultBranch: useMutation({
@@ -258,11 +288,45 @@ export function useThreadMutations(projectId: string | null) {
         archived?: boolean
         flowId?: string | null
         session?: SessionConfig | null
+        branchName?: string | null
+        folderId?: string | null
       }) => api.updateThread(id, input),
       onSuccess: invalidate,
     }),
     remove: useMutation({
       mutationFn: api.deleteThread,
+      onSuccess: invalidate,
+    }),
+  }
+}
+
+export function useFolders(projectId: string | null) {
+  return useQuery({
+    queryKey: qk.folders(projectId ?? ""),
+    queryFn: () => api.listFolders(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+export function useFolderMutations(projectId: string | null) {
+  const qc = useQueryClient()
+  const invalidate = () => {
+    if (!projectId) return
+    qc.invalidateQueries({ queryKey: qk.folders(projectId) })
+    // Deleting a folder moves its threads to the top level server-side.
+    qc.invalidateQueries({ queryKey: ["threads", projectId] })
+  }
+  return {
+    create: useMutation({
+      mutationFn: (input: { name: string }) => api.createFolder(projectId!, input),
+      onSuccess: invalidate,
+    }),
+    rename: useMutation({
+      mutationFn: ({ id, name }: { id: string; name: string }) => api.renameFolder(id, { name }),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => api.deleteFolder(id),
       onSuccess: invalidate,
     }),
   }

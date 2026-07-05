@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { LanguageDescription } from "@codemirror/language"
 import { languages } from "@codemirror/language-data"
 import type { Extension } from "@codemirror/state"
 import CodeMirror from "@uiw/react-codemirror"
 import { Check, Copy, FileCode2, Globe, Maximize2, X } from "lucide-react"
-import { useTheme } from "@/components/theme-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { createEditorTheme } from "@/lib/codemirror-theme"
+import { editorChrome, useEditorTheme } from "@/lib/editor-themes"
 import { isPreviewable, openPreview } from "@/lib/preview"
 import { useProjectFile } from "@/lib/queries"
 
@@ -20,10 +19,9 @@ interface FileViewerProps {
 
 export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerProps) {
   const file = useProjectFile(projectId, path)
-  const { resolvedTheme } = useTheme()
   const [languageExtensions, setLanguageExtensions] = useState<Extension[]>([])
   const [copied, setCopied] = useState(false)
-  const editorTheme = useMemo(() => createEditorTheme(resolvedTheme === "dark"), [resolvedTheme])
+  const editorTheme = useEditorTheme()
 
   // Don't carry the "copied" checkmark over to a different file.
   useEffect(() => {
@@ -122,7 +120,7 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
           readOnly
           editable={false}
           theme={editorTheme}
-          extensions={languageExtensions}
+          extensions={[...languageExtensions, editorChrome]}
         />
       )}
     </div>
