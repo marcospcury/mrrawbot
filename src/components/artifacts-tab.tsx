@@ -27,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { MarkdownLink } from "@/components/markdown-link"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -384,11 +385,11 @@ function DocumentViewer({
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="mrr-artifact-doc mx-auto w-full max-w-3xl p-6">
+        <div className="mrr-doc mrr-markdown mx-auto w-full max-w-3xl p-6">
           {content.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
-            <Markdown content={text} />
+            <Markdown content={text} components={{ a: MarkdownLink }} />
           )}
         </div>
       </ScrollArea>

@@ -21,6 +21,7 @@ import {
 import { FolderTree } from "lucide-react"
 import { AgentRunTimeline } from "@/components/agent-run-timeline"
 import { Composer } from "@/components/composer"
+import { MarkdownLink } from "@/components/markdown-link"
 import { GitHeaderControl } from "@/components/git-header-control"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -212,7 +213,7 @@ export function ChatPanel({
 
       <div className={cn("relative min-h-0 flex-1")}>
         <CopilotChat
-          className="mrr-chat h-full"
+          className="mrr-chat mrr-markdown h-full"
           labels={{
             placeholder:
               thread.kind === "product-design" ? "Describe the product or feature…" : "Describe a coding task…",
@@ -220,7 +221,7 @@ export function ChatPanel({
           AssistantMessage={(props: AssistantMessageProps) => (
             <>
               {persistedTimelines(props.message?.id, runsByAssistant)}
-              <DefaultAssistantMessage {...props} />
+              <DefaultAssistantMessage {...props} markdownTagRenderers={{ a: MarkdownLink }} />
             </>
           )}
           UserMessage={(props: UserMessageProps) => (

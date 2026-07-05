@@ -2,10 +2,13 @@ import { useEffect, useState, type ReactNode } from "react"
 import { LanguageDescription } from "@codemirror/language"
 import { languages } from "@codemirror/language-data"
 import type { Extension } from "@codemirror/state"
+import { Markdown } from "@copilotkit/react-ui"
 import CodeMirror from "@uiw/react-codemirror"
-import { Check, Copy, FileCode2, Globe, Maximize2, X } from "lucide-react"
+import { BookOpenText, Check, CodeXml, Copy, FileCode2, Globe, Maximize2, X } from "lucide-react"
+import { MarkdownLink } from "@/components/markdown-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { editorChrome, useEditorTheme } from "@/lib/editor-themes"
 import { isPreviewable, openPreview } from "@/lib/preview"
 import { useProjectFile } from "@/lib/queries"
@@ -21,7 +24,9 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
   const file = useProjectFile(projectId, path)
   const [languageExtensions, setLanguageExtensions] = useState<Extension[]>([])
   const [copied, setCopied] = useState(false)
+  const [showSource, setShowSource] = useState(false)
   const editorTheme = useEditorTheme()
+  const isMarkdown = /\.(md|markdown)$/i.test(path ?? "")
 
   // Don't carry the "copied" checkmark over to a different file.
   useEffect(() => {
@@ -72,6 +77,17 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
             Truncated
           </Badge>
         )}
+        {isMarkdown && !content?.binary && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={showSource ? "View rendered markdown" : "View markdown source"}
+            title={showSource ? "View rendered" : "View source"}
+            onClick={() => setShowSource((value) => !value)}
+          >
+            {showSource ? <BookOpenText className="size-3" /> : <CodeXml className="size-3" />}
+          </Button>
+        )}
         {isPreviewable(path) && (
           <Button
             variant="ghost"
@@ -110,6 +126,12 @@ export function FileViewer({ projectId, path, onClose, onExpand }: FileViewerPro
         <ViewerStatus>Unable to load file</ViewerStatus>
       ) : content?.binary ? (
         <ViewerStatus>Binary file not shown</ViewerStatus>
+      ) : isMarkdown && !showSource ? (
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="mrr-doc mrr-markdown mx-auto w-full max-w-3xl px-6 py-5">
+            <Markdown content={content?.content ?? ""} components={{ a: MarkdownLink }} />
+          </div>
+        </ScrollArea>
       ) : (
         <CodeMirror
           key={content?.path ?? path}

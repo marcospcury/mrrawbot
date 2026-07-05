@@ -78,7 +78,8 @@ export function WorkspacePanel({
       ) : (
         <Tabs value={tab} onValueChange={(v) => onTabChange(v as WorkspaceTab)} className="flex h-full min-h-0 flex-col gap-0">
           <header className="mrr-header flex min-h-12 shrink-0 items-center gap-2 border-b px-3">
-            <TabsList className="h-8">
+            {/* The base TabsList sets h-9 via a group-data variant that outranks a plain h-8. */}
+            <TabsList className="h-8!">
               <TabsTrigger value="files" className="gap-1.5">
                 <FolderTree className="size-4" />
                 Files
@@ -144,10 +145,14 @@ export function WorkspacePanel({
             )}
           </TabsContent>
 
-          <TabsContent value="changes" className="min-h-0">
-            <ScrollArea className="h-full">
-              <ChangesView threadId={threadId} />
-            </ScrollArea>
+          <TabsContent value="changes" className="min-h-0 overflow-hidden">
+            {isMain ? (
+              <ChangesView threadId={threadId} layout="split" />
+            ) : (
+              <ScrollArea className="h-full">
+                <ChangesView threadId={threadId} />
+              </ScrollArea>
+            )}
           </TabsContent>
 
           <TabsContent value="design" className="min-h-0 overflow-hidden">
