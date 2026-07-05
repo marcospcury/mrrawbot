@@ -10,6 +10,9 @@ const pexec = promisify(execFile)
 const MAX_OUTPUT = 16_000
 const DEFAULT_BASH_TIMEOUT_MS = 120_000
 const MAX_BASH_TIMEOUT_MS = 600_000
+const MAX_GREP_MATCHES = 40
+const MAX_GREP_FILE_BYTES = 1_000_000
+const SKIP_GREP_DIRS = new Set([".git", "node_modules", "dist", "release"])
 
 function clip(s: string): string {
   return s.length > MAX_OUTPUT ? s.slice(0, MAX_OUTPUT) + `\n…[truncated ${s.length - MAX_OUTPUT} chars]` : s
@@ -21,6 +24,52 @@ function formatCommandResult(result: { exitCode: number | null; signal: NodeJS.S
   if (result.stdout.trim()) parts.push(`stdout:\n${clip(result.stdout.trimEnd())}`)
   if (result.stderr.trim()) parts.push(`stderr:\n${clip(result.stderr.trimEnd())}`)
   return parts.join("\n")
+}
+
+async function grepWithNodeFallback(target: string, query: string): Promise<string> {
+  const flags = /[A-Z]/.test(query) ? "" : "i"
+  const matcher = new RegExp(query, flags)
+  const matches: string[] = []
+
+  const searchFile = async (filePath: string) => {
+    if (matches.length >= MAX_GREP_MATCHES) return
+    const info = await stat(filePath)
+    if (!info.isFile() || info.size > MAX_GREP_FILE_BYTES) return
+
+    const content = await readFile(filePath, "utf8")
+    const lines = content.split(/\r?\n/)
+    for (let index = 0; index < lines.length && matches.length < MAX_GREP_MATCHES; index += 1) {
+      if (matcher.test(lines[index])) {
+        const relativePath = path.relative(target, filePath) || path.basename(filePath)
+        matches.push(`${relativePath}:${index + 1}:${lines[index]}`)
+      }
+    }
+  }
+
+  const walk = async (dir: string) => {
+    if (matches.length >= MAX_GREP_MATCHES) return
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (matches.length >= MAX_GREP_MATCHES) return
+      if (entry.name.startsWith(".") || SKIP_GREP_DIRS.has(entry.name)) continue
+
+      const entryPath = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await walk(entryPath)
+      } else if (entry.isFile()) {
+        await searchFile(entryPath)
+      }
+    }
+  }
+
+  const info = await stat(target)
+  if (info.isDirectory()) {
+    await walk(target)
+  } else {
+    await searchFile(target)
+  }
+
+  return clip(matches.join("\n") || "(no matches)")
 }
 
 function runBash(cwd: string, command: string, timeoutMs: number, signal?: AbortSignal): Promise<string> {
@@ -153,8 +202,8 @@ export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: 
 
   const grepTool = tool(
     async ({ query, path: p }) => {
+      const target = p ? resolveReadPath(p) : cwd
       try {
-        const target = p ? resolveReadPath(p) : cwd
         const { stdout } = await pexec(
           "rg",
           ["--line-number", "--no-heading", "--color", "never", "-S", "--max-count", "40", query, "."],
@@ -162,8 +211,9 @@ export function makeRepoTools(cwd: string, signal?: AbortSignal, workspaceDir?: 
         )
         return clip(stdout.trim() || "(no matches)")
       } catch (e) {
-        const err = e as { stdout?: string; code?: number; message?: string }
+        const err = e as { stdout?: string; code?: number | string; message?: string }
         if (err.code === 1) return "(no matches)"
+        if (err.code === "ENOENT") return await grepWithNodeFallback(target, query)
         return `Error: ${err.message ?? "search failed"}`
       }
     },

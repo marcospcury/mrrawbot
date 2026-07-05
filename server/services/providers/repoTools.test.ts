@@ -108,4 +108,21 @@ describe("makeRepoTools bash", () => {
     const result = String(await grep!.invoke({ query: "needle", path: uploads }))
     expect(result).toContain("upload-grep.txt:1:needle line")
   })
+
+  it("searches with the built-in fallback when ripgrep is unavailable", async () => {
+    const uploads = await addTmpDir()
+    await writeFile(path.join(uploads, "upload-fallback.txt"), "needle fallback\n", "utf8")
+
+    const tools = makeRepoTools(root, undefined, undefined, uploads)
+    const grep = tools.find((t) => t.name === "grep")
+    const originalPath = process.env.PATH
+    process.env.PATH = ""
+
+    try {
+      const result = String(await grep!.invoke({ query: "needle", path: uploads }))
+      expect(result).toContain("upload-fallback.txt:1:needle fallback")
+    } finally {
+      process.env.PATH = originalPath
+    }
+  })
 })
