@@ -14,7 +14,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { ChatPanel } from "@/components/chat-panel"
 import { FlowsDialog } from "@/components/flows-dialog"
 import { RepoPickerDialog } from "@/components/repo-picker-dialog"
-import { SettingsDialog } from "@/components/settings-dialog"
+import { SettingsPage } from "@/components/settings-page"
 import { WelcomeScreen } from "@/components/welcome-screen"
 
 // The workspace panel drags in CodeMirror, the merge view, and the full
@@ -33,7 +33,7 @@ interface RunConfig {
   session: SessionConfig | null
 }
 
-export type DialogKind = "repos" | "agents" | "flows" | "settings" | null
+export type DialogKind = "repos" | "agents" | "flows" | null
 
 export default function App() {
   const projects = useProjects()
@@ -54,6 +54,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = usePersisted("mrr.sidebar.width", 272)
   const [includeArchived, setIncludeArchived] = useState(false)
   const [dialog, setDialog] = useState<DialogKind>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const activeProject = useMemo(() => {
     const list = projects.data ?? []
@@ -172,135 +173,149 @@ export default function App() {
   const hasProjects = (projects.data?.length ?? 0) > 0
 
   return (
-    <SidebarProvider style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}>
-      <AppSidebar
-        onResize={setSidebarWidth}
-        projects={projects.data ?? []}
-        activeProject={activeProject}
-        onSelectProject={selectProject}
-        onDeleteProject={deleteProject}
-        threads={threads.data ?? []}
-        threadsLoading={threads.isLoading}
-        activeThreadId={activeThread?.id ?? null}
-        includeArchived={includeArchived}
-        onToggleArchived={() => setIncludeArchived((v) => !v)}
-        onSelectThread={selectThread}
-        onNewThread={newThread}
-        onRenameThread={renameThread}
-        onArchiveThread={archiveThread}
-        onDeleteThread={deleteThread}
-        onOpenRepos={() => setDialog("repos")}
-        onOpenAgents={() => setDialog("agents")}
-        onOpenFlows={() => setDialog("flows")}
-        onOpenSettings={() => setDialog("settings")}
-      />
-
-      <SidebarInset className="h-svh overflow-hidden">
-        {activeProject && activeThread ? (
-          <CopilotKit
-            key={activeThread.id}
-            runtimeUrl="/api/copilotkit"
-            agent="mrrawbot"
-            threadId={activeThread.id}
-            properties={{
-              flowId: runDraft?.flowId ?? null,
-              session: runDraft?.session ?? null,
-              persona: activeThread.kind === "product-design" ? persona : undefined,
+    <SidebarProvider
+      open={settingsOpen ? true : undefined}
+      onOpenChange={settingsOpen ? () => undefined : undefined}
+      style={{ "--sidebar-width": settingsOpen ? "16rem" : `${sidebarWidth}px` } as React.CSSProperties}
+      className={settingsOpen ? "h-svh overflow-hidden max-md:flex-col" : undefined}
+    >
+      {settingsOpen ? (
+        <SettingsPage onBack={() => setSettingsOpen(false)} />
+      ) : (
+        <>
+          <AppSidebar
+            onResize={setSidebarWidth}
+            projects={projects.data ?? []}
+            activeProject={activeProject}
+            onSelectProject={selectProject}
+            onDeleteProject={deleteProject}
+            threads={threads.data ?? []}
+            threadsLoading={threads.isLoading}
+            activeThreadId={activeThread?.id ?? null}
+            includeArchived={includeArchived}
+            onToggleArchived={() => setIncludeArchived((v) => !v)}
+            onSelectThread={selectThread}
+            onNewThread={newThread}
+            onRenameThread={renameThread}
+            onArchiveThread={archiveThread}
+            onDeleteThread={deleteThread}
+            onOpenRepos={() => setDialog("repos")}
+            onOpenAgents={() => setDialog("agents")}
+            onOpenFlows={() => setDialog("flows")}
+            onOpenSettings={() => {
+              setDialog(null)
+              setSettingsOpen(true)
             }}
-            showDevConsole={false}
-          >
-            <div className="relative h-full">
-              <ResizablePanelGroup
-                orientation="horizontal"
-                className="h-full"
-                // Persist the split only when the user releases the drag — a
-                // per-frame setState here re-renders the whole chat + workspace
-                // tree mid-drag and makes resizing feel janky.
-                onLayoutChanged={(layout, meta) => {
-                  const size = layout["workspace"]
-                  if (meta.isUserInteraction && typeof size === "number") setWorkspaceSize(Math.round(size))
+          />
+
+          <SidebarInset className="h-svh overflow-hidden">
+            {activeProject && activeThread ? (
+              <CopilotKit
+                key={activeThread.id}
+                runtimeUrl="/api/copilotkit"
+                agent="mrrawbot"
+                threadId={activeThread.id}
+                properties={{
+                  flowId: runDraft?.flowId ?? null,
+                  session: runDraft?.session ?? null,
+                  persona: activeThread.kind === "product-design" ? persona : undefined,
                 }}
+                showDevConsole={false}
               >
-                {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
-                <ResizablePanel id="chat" minSize="25%" defaultSize={workspaceOpen ? `${100 - workspaceSize}%` : "100%"}>
-                  <ChatPanel
-                    project={activeProject}
-                    thread={activeThread}
-                    flows={flows.data ?? []}
-                    flowId={runDraft?.flowId ?? null}
-                    session={runDraft?.session ?? null}
-                    workspaceOpen={workspaceOpen}
-                    onToggleWorkspace={() => setWorkspaceOpen(!workspaceOpen)}
-                    onRenameThread={renameThread}
-                    onChangeRun={changeRun}
-                    onManageFlows={() => setDialog("flows")}
-                    onArtifactsLanded={artifactsLanded}
-                    persona={persona}
-                    onPersonaChange={setPersona}
-                    prefill={composerPrefill}
-                    onPrefillConsumed={() => setComposerPrefill(null)}
-                  />
-                </ResizablePanel>
-                {workspaceOpen && !workspaceInMain && (
-                  <>
-                    <ResizableHandle />
-                    <ResizablePanel id="workspace" minSize="24%" maxSize="75%" defaultSize={`${workspaceSize}%`}>
+                <div className="relative h-full">
+                  <ResizablePanelGroup
+                    orientation="horizontal"
+                    className="h-full"
+                    // Persist the split only when the user releases the drag — a
+                    // per-frame setState here re-renders the whole chat + workspace
+                    // tree mid-drag and makes resizing feel janky.
+                    onLayoutChanged={(layout, meta) => {
+                      const size = layout["workspace"]
+                      if (meta.isUserInteraction && typeof size === "number") setWorkspaceSize(Math.round(size))
+                    }}
+                  >
+                    {/* react-resizable-panels v4 treats bare numbers as pixels — sizes must be "%" strings. */}
+                    <ResizablePanel id="chat" minSize="25%" defaultSize={workspaceOpen ? `${100 - workspaceSize}%` : "100%"}>
+                      <ChatPanel
+                        project={activeProject}
+                        thread={activeThread}
+                        flows={flows.data ?? []}
+                        flowId={runDraft?.flowId ?? null}
+                        session={runDraft?.session ?? null}
+                        workspaceOpen={workspaceOpen}
+                        onToggleWorkspace={() => setWorkspaceOpen(!workspaceOpen)}
+                        onRenameThread={renameThread}
+                        onChangeRun={changeRun}
+                        onManageFlows={() => setDialog("flows")}
+                        onArtifactsLanded={artifactsLanded}
+                        persona={persona}
+                        onPersonaChange={setPersona}
+                        prefill={composerPrefill}
+                        onPrefillConsumed={() => setComposerPrefill(null)}
+                      />
+                    </ResizablePanel>
+                    {workspaceOpen && !workspaceInMain && (
+                      <>
+                        <ResizableHandle />
+                        <ResizablePanel id="workspace" minSize="24%" maxSize="75%" defaultSize={`${workspaceSize}%`}>
+                          <Suspense fallback={null}>
+                            <WorkspacePanel
+                              projectId={activeProject.id}
+                              threadId={activeThread.id}
+                              tab={workspaceTab}
+                              onTabChange={setWorkspaceTab}
+                              selectedPath={selectedFilePath}
+                              onSelectPath={setSelectedFilePath}
+                              onOpenInMain={() => setWorkspaceInMain(true)}
+                              openDesignSlug={openDesignSlug}
+                              onOpenDesign={setOpenDesignSlug}
+                              onSelectThread={selectThread}
+                              onStartBuildThread={startBuildThread}
+                            />
+                          </Suspense>
+                        </ResizablePanel>
+                      </>
+                    )}
+                  </ResizablePanelGroup>
+                  {workspaceInMain && (
+                    <div className="absolute inset-0 z-10 bg-background">
                       <Suspense fallback={null}>
                         <WorkspacePanel
                           projectId={activeProject.id}
                           threadId={activeThread.id}
                           tab={workspaceTab}
                           onTabChange={setWorkspaceTab}
+                          location="main"
                           selectedPath={selectedFilePath}
                           onSelectPath={setSelectedFilePath}
-                          onOpenInMain={() => setWorkspaceInMain(true)}
+                          onExitMain={() => setWorkspaceInMain(false)}
                           openDesignSlug={openDesignSlug}
                           onOpenDesign={setOpenDesignSlug}
-                          onSelectThread={selectThread}
-                          onStartBuildThread={startBuildThread}
+                          onSelectThread={(id) => {
+                            setWorkspaceInMain(false)
+                            selectThread(id)
+                          }}
+                          onStartBuildThread={(prompt) => {
+                            setWorkspaceInMain(false)
+                            void startBuildThread(prompt)
+                          }}
                         />
                       </Suspense>
-                    </ResizablePanel>
-                  </>
-                )}
-              </ResizablePanelGroup>
-              {workspaceInMain && (
-                <div className="absolute inset-0 z-10 bg-background">
-                  <Suspense fallback={null}>
-                    <WorkspacePanel
-                      projectId={activeProject.id}
-                      threadId={activeThread.id}
-                      tab={workspaceTab}
-                      onTabChange={setWorkspaceTab}
-                      location="main"
-                      selectedPath={selectedFilePath}
-                      onSelectPath={setSelectedFilePath}
-                      onExitMain={() => setWorkspaceInMain(false)}
-                      openDesignSlug={openDesignSlug}
-                      onOpenDesign={setOpenDesignSlug}
-                      onSelectThread={(id) => {
-                        setWorkspaceInMain(false)
-                        selectThread(id)
-                      }}
-                      onStartBuildThread={(prompt) => {
-                        setWorkspaceInMain(false)
-                        void startBuildThread(prompt)
-                      }}
-                    />
-                  </Suspense>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </CopilotKit>
-        ) : (
-          <WelcomeScreen
-            hasProjects={hasProjects}
-            projectName={activeProject?.name ?? null}
-            onAddRepo={() => setDialog("repos")}
-            onNewThread={activeProject ? () => newThread("build") : undefined}
-          />
-        )}
-      </SidebarInset>
+              </CopilotKit>
+            ) : (
+              <WelcomeScreen
+                hasProjects={hasProjects}
+                projectName={activeProject?.name ?? null}
+                onAddRepo={() => setDialog("repos")}
+                onNewThread={activeProject ? () => newThread("build") : undefined}
+              />
+            )}
+          </SidebarInset>
+        </>
+      )}
 
       <RepoPickerDialog
         open={dialog === "repos"}
@@ -312,7 +327,6 @@ export default function App() {
       />
       <AgentsDialog open={dialog === "agents"} onOpenChange={(o) => setDialog(o ? "agents" : null)} />
       <FlowsDialog open={dialog === "flows"} onOpenChange={(o) => setDialog(o ? "flows" : null)} />
-      <SettingsDialog open={dialog === "settings"} onOpenChange={(o) => setDialog(o ? "settings" : null)} />
     </SidebarProvider>
   )
 }
