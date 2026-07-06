@@ -113,6 +113,19 @@ describe("getProviderStatuses", () => {
     expect(cerebras?.models).toContain(env.cerebrasDefaultModel)
   })
 
+  it("drops bare Claude family aliases that duplicate a versioned model id", async () => {
+    mocks.listCodexModels.mockResolvedValue([])
+
+    const { getProviderStatuses } = await import("./status.ts")
+    const claude = (await getProviderStatuses()).find((s) => s.provider === "claude")
+
+    expect(claude?.models).toContain("claude-opus-4-8")
+    expect(claude?.models).toContain("claude-sonnet-5")
+    for (const alias of ["opus", "sonnet", "haiku", "fable"]) {
+      expect(claude?.models).not.toContain(alias)
+    }
+  })
+
   it("unconfiguredProviders returns only providers that aren't set up, deduped", async () => {
     env.huggingfaceApiKey = "hf-token"
     env.openrouterApiKey = null

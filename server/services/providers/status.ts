@@ -12,10 +12,16 @@ const CLAUDE_MODELS = [
   "claude-opus-4-8",
   "claude-sonnet-5",
   "claude-haiku-4-5-20251001",
-  "opus",
-  "sonnet",
-  "haiku",
 ]
+
+// Bare family aliases ("opus") are interchangeable with their versioned id and
+// only clutter the picker; keep them just when no versioned id covers them.
+const CLAUDE_ALIAS = /^(opus|sonnet|haiku|fable)$/
+function dedupeClaudeAliases(models: string[]): string[] {
+  return models.filter(
+    (m) => !CLAUDE_ALIAS.test(m) || !models.some((other) => other.startsWith(`claude-${m}`)),
+  )
+}
 // Fallback only — the real list is queried live from the Codex app-server.
 const CODEX_FALLBACK_MODELS = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"]
 
@@ -143,7 +149,7 @@ export async function getProviderStatuses(): Promise<ProviderStatus[]> {
       detail: claudeAvailable
         ? `Local CLI at ${env.claudeBinPath} (uses your Claude subscription login)`
         : "Claude Code CLI not found",
-      models: dedupe([env.claudeDefaultModel, ...claudeModels, ...CLAUDE_MODELS]),
+      models: dedupeClaudeAliases(dedupe([env.claudeDefaultModel, ...claudeModels, ...CLAUDE_MODELS])),
       fastModels: [],
       hiddenModels: [],
       configHint: claudeAvailable
