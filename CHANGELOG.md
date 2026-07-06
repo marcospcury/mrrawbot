@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/marcospcury/mrrawbot/compare/v1.6.0...v1.7.0) (2026-07-06)
+
+
+### Features
+
+* add OpenRouter, Hugging Face, and Cerebras inference providers ([#15](https://github.com/marcospcury/mrrawbot/issues/15)) ([15c048b](https://github.com/marcospcury/mrrawbot/commit/15c048bff6041368dbb151e3c4a20c33ddc6e061))
+
 ## [1.6.0](https://github.com/marcospcury/mrrawbot/compare/v1.5.0...v1.6.0) (2026-07-05)
 
 
