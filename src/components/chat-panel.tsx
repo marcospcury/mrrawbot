@@ -50,6 +50,8 @@ interface ChatPanelProps {
   onPersonaChange: (persona: ProductDesignPersona) => void
   prefill: string | null
   onPrefillConsumed: () => void
+  initialMessage: string | null
+  onInitialMessageConsumed: () => void
 }
 
 export function ChatPanel({
@@ -68,6 +70,8 @@ export function ChatPanel({
   onPersonaChange,
   prefill,
   onPrefillConsumed,
+  initialMessage,
+  onInitialMessageConsumed,
 }: ChatPanelProps) {
   const queryClient = useQueryClient()
   const headerRef = useRef<HTMLElement | null>(null)
@@ -80,14 +84,21 @@ export function ChatPanel({
   const liveRunIds = useRef(new Set<string>())
 
   // Render the orchestrator run timeline inline in the chat as generative UI.
+  // Each render slot pins itself to one run (see PinnedRunTimeline): CopilotKit
+  // passes a global status and can leak the live run's state into earlier
+  // slots, which used to replay execution animation on every follow-up.
   useCoAgentStateRender<AgentRunState>({
     name: "mrrawbot",
-    render: ({ state, status }) => {
-      if (state?.runId) liveRunIds.current.add(state.runId)
-      return state?.steps?.length ? (
-        <AgentRunTimelineWithChangeRefresh state={state} status={status} onComplete={handleRunComplete} />
-      ) : null
-    },
+    render: ({ state, status }) =>
+      state?.runId && state.steps?.length ? (
+        <PinnedRunTimeline
+          state={state}
+          status={status}
+          isRunCompleted={(id) => completedRunIds.current.has(id)}
+          onOwnRun={(id) => liveRunIds.current.add(id)}
+          onComplete={handleRunComplete}
+        />
+      ) : null,
   })
 
   // Runs whose completion side effects (query refresh, design auto-open)
@@ -217,7 +228,7 @@ export function ChatPanel({
           icons={{ activityIcon: null }}
           labels={{
             placeholder:
-              thread.kind === "product-design" ? "Describe the product or feature…" : "Describe a coding task…",
+              thread.kind === "product-design" ? "Describe the product or feature…" : "Describe a task…",
           }}
           AssistantMessage={(props: AssistantMessageProps) => (
             <>
@@ -248,6 +259,8 @@ export function ChatPanel({
               onPersonaChange={onPersonaChange}
               prefill={prefill}
               onPrefillConsumed={onPrefillConsumed}
+              initialMessage={initialMessage}
+              onInitialMessageConsumed={onInitialMessageConsumed}
               inProgress={props.inProgress}
               onSend={props.onSend}
               onStop={props.onStop}
@@ -274,6 +287,56 @@ function AgentRunTimelineWithChangeRefresh({
   }, [onComplete, state, status])
 
   return <AgentRunTimeline state={state} status={status} />
+}
+
+/**
+ * One chat slot = one run. CopilotKit passes a global status (agent.isRunning)
+ * to every state-render slot and can hand a slot state belonging to a
+ * different run, so without pinning, finished boxes replay the execution
+ * animation and stream the live run's output on every follow-up message.
+ *
+ * Adoption rules:
+ * - A run that isn't completed yet is the live run — adopt it.
+ * - A completed run while the agent is idle is a legitimate remount of a
+ *   finished box (history refreshes remount slots) — adopt it, render done.
+ * - A completed run while another run is streaming is leaked state in a slot
+ *   that hasn't received its own run yet — render nothing until it arrives.
+ * Once pinned, state from any other run is ignored.
+ */
+function PinnedRunTimeline({
+  state,
+  status,
+  isRunCompleted,
+  onOwnRun,
+  onComplete,
+}: {
+  state: AgentRunState
+  status: "inProgress" | "complete"
+  isRunCompleted: (runId: string) => boolean
+  onOwnRun: (runId: string) => void
+  onComplete: (state: AgentRunState) => void
+}) {
+  const pinnedRunId = useRef<string | null>(null)
+  const pinnedState = useRef<AgentRunState | null>(null)
+
+  if (pinnedRunId.current === null && (!isRunCompleted(state.runId) || status === "complete")) {
+    pinnedRunId.current = state.runId
+  }
+  const ownRun = state.runId === pinnedRunId.current
+  if (ownRun) {
+    pinnedState.current = state
+    onOwnRun(state.runId)
+  }
+  if (pinnedState.current === null) return null
+
+  const live = ownRun && !isRunCompleted(state.runId)
+  return (
+    <AgentRunTimelineWithChangeRefresh
+      state={pinnedState.current}
+      status={live ? status : "complete"}
+      onComplete={onComplete}
+    />
+  )
 }
 
 function EditableTitle({

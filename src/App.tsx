@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import { flushSync } from "react-dom"
 import { CopilotKit } from "@copilotkit/react-core"
 import "@copilotkit/react-ui/styles.css"
 import type {
@@ -13,6 +14,7 @@ import { AgentsDialog } from "@/components/agents-dialog"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChatPanel } from "@/components/chat-panel"
 import { FlowsDialog } from "@/components/flows-dialog"
+import { NewThreadView } from "@/components/new-thread-view"
 import { RepoPickerDialog } from "@/components/repo-picker-dialog"
 import { SettingsPage } from "@/components/settings-page"
 import { WelcomeScreen } from "@/components/welcome-screen"
@@ -40,7 +42,9 @@ export default function App() {
   const flows = useFlows()
 
   const [activeProjectId, setActiveProjectId] = usePersisted<string | null>("mrr.activeProject", null)
-  const [threadByProject, setThreadByProject] = usePersisted<Record<string, string>>("mrr.activeThread", {})
+  // Session-only on purpose: the app opens on the clean "no conversation" view;
+  // per-project selection is still remembered while switching projects.
+  const [threadByProject, setThreadByProject] = useState<Record<string, string>>({})
   const [workspaceOpen, setWorkspaceOpen] = usePersisted("mrr.workspace.open", false)
   const [workspaceSize, setWorkspaceSize] = usePersisted("mrr.workspace.size", 32)
   const [workspaceTab, setWorkspaceTab] = usePersisted<WorkspaceTab>("mrr.workspace.tab", "files")
@@ -51,6 +55,9 @@ export default function App() {
   const [openDesignSlug, setOpenDesignSlug] = useState<string | null>(null)
   const [persona, setPersona] = useState<ProductDesignPersona>("auto")
   const [composerPrefill, setComposerPrefill] = useState<string | null>(null)
+  // First message of a thread started from the new-thread view — auto-sent by
+  // the composer once the chat connects.
+  const [pendingFirstMessage, setPendingFirstMessage] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = usePersisted("mrr.sidebar.width", 272)
   const [includeArchived, setIncludeArchived] = useState(false)
   const [dialog, setDialog] = useState<DialogKind>(null)
@@ -80,7 +87,9 @@ export default function App() {
   const [runDraft, setRunDraft] = useState<RunConfig | null>(null)
   useEffect(() => {
     setRunDraft(activeThread ? { flowId: activeThread.flowId, session: activeThread.session } : null)
-    setPersona("auto")
+    // A pending first message means this thread was just started from the
+    // new-thread view — keep the persona picked there for that message.
+    if (pendingFirstMessage == null) setPersona("auto")
   }, [activeThread?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function changeRun(next: RunConfig) {
@@ -88,14 +97,6 @@ export default function App() {
     setRunDraft(next)
     void threadMutations.update.mutateAsync({ id: activeThread.id, flowId: next.flowId, session: next.session })
   }
-
-  // Auto-select the most recent thread when none is active.
-  useEffect(() => {
-    if (!activeProject || activeThread) return
-    const firstOpen = (threads.data ?? []).find((t) => !t.archived)
-    if (firstOpen) selectThread(firstOpen.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threads.data, activeProject?.id])
 
   function selectProject(id: string) {
     setActiveProjectId(id)
@@ -128,10 +129,29 @@ export default function App() {
     if (activeProject) setThreadByProject((prev) => ({ ...prev, [activeProject.id]: id }))
   }
 
-  async function newThread(kind: ThreadKind = "build") {
-    if (!activeProject) return
-    const thread = await threadMutations.create.mutateAsync({ kind })
-    selectThread(thread.id)
+  // The thread only exists once its first message is sent: the new-thread
+  // view creates it with the drafted run config, prepares it (attachment
+  // uploads, artifacts), then launches it — the composer auto-sends the
+  // message on connect.
+  function createDraftThread(kind: ThreadKind, config: RunConfig): Promise<Thread> {
+    return threadMutations.create.mutateAsync({
+      kind,
+      flowId: kind === "build" ? config.flowId : null,
+      session: config.session,
+    })
+  }
+
+  function launchThread(thread: Thread, firstMessage: string) {
+    const apply = () => {
+      setPendingFirstMessage(firstMessage)
+      selectThread(thread.id)
+    }
+    // Morph the landing composer into the chat composer (both carry
+    // view-transition-name: mrr-composer). Falls back to an instant swap
+    // where the View Transitions API is unavailable.
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
+    if (doc.startViewTransition) doc.startViewTransition(() => flushSync(apply))
+    else apply()
   }
 
   async function renameThread(id: string, title: string) {
@@ -170,8 +190,6 @@ export default function App() {
     }
   }
 
-  const hasProjects = (projects.data?.length ?? 0) > 0
-
   return (
     <SidebarProvider
       open={settingsOpen ? true : undefined}
@@ -195,7 +213,7 @@ export default function App() {
             includeArchived={includeArchived}
             onToggleArchived={() => setIncludeArchived((v) => !v)}
             onSelectThread={selectThread}
-            onNewThread={newThread}
+            onNewThread={clearActiveThread}
             onRenameThread={renameThread}
             onArchiveThread={archiveThread}
             onDeleteThread={deleteThread}
@@ -252,6 +270,8 @@ export default function App() {
                         onPersonaChange={setPersona}
                         prefill={composerPrefill}
                         onPrefillConsumed={() => setComposerPrefill(null)}
+                        initialMessage={pendingFirstMessage}
+                        onInitialMessageConsumed={() => setPendingFirstMessage(null)}
                       />
                     </ResizablePanel>
                     {workspaceOpen && !workspaceInMain && (
@@ -305,13 +325,20 @@ export default function App() {
                   )}
                 </div>
               </CopilotKit>
-            ) : (
-              <WelcomeScreen
-                hasProjects={hasProjects}
-                projectName={activeProject?.name ?? null}
-                onAddRepo={() => setDialog("repos")}
-                onNewThread={activeProject ? () => newThread("build") : undefined}
+            ) : activeProject ? (
+              <NewThreadView
+                projectId={activeProject.id}
+                projectName={activeProject.name}
+                flows={flows.data ?? []}
+                onManageFlows={() => setDialog("flows")}
+                persona={persona}
+                onPersonaChange={setPersona}
+                onCreateThread={createDraftThread}
+                onLaunch={launchThread}
+                onDiscard={deleteThread}
               />
+            ) : (
+              <WelcomeScreen onAddRepo={() => setDialog("repos")} />
             )}
           </SidebarInset>
         </>
