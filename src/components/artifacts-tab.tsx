@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { scopeArtifacts } from "@shared/artifact-scope"
 import type { ArtifactInfo, ArtifactKind } from "@shared/types"
 import { Markdown } from "@copilotkit/react-ui"
-import { ArrowRotate, ArrowUpRightSquare, Category2, ChatSquare, ChevronLeft, ChevronRight, Copy, FileText, Home, PenTool2, Sledgehammer, TerminalSquare, Trash2 } from "reicon-react"
+import { ArrowRotate, ArrowUpRightSquare, Category2, ChatSquare, ChevronLeft, ChevronRight, Copy, FileText, Home, PenNib, Sledgehammer, TerminalSquare, Trash2 } from "reicon-react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -123,7 +123,7 @@ function ArtifactGallery({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/40">
-          <PenTool2 className="size-5 text-muted-foreground" />
+          <PenNib className="size-5 text-muted-foreground" />
         </div>
         <div className="space-y-1">
           <p className="text-sm font-medium">No artifacts yet</p>

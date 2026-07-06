@@ -104,7 +104,7 @@ export function RepoPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden p-0 sm:max-w-xl">
         <DialogHeader className="border-b px-4 py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pr-8">
             <div>
               <DialogTitle>Add a repository</DialogTitle>
               <DialogDescription className="mt-0.5">

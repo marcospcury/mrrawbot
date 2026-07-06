@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { Archive, ArchiveUp, Chat, ChatPlus, ChevronDown, ChevronExpandY, ChevronRight, Devices, Edit2, Folder, FolderDown, FolderOpen, FolderPlus, Hierarchy2, Moon, MoreH, PenTool2, Plus, Settings, Sun, Trash2 } from "reicon-react"
+import { Archive, ArchiveUp, BrowserCode, Chat, ChatPlus, ChevronExpandY, ChevronRight, Devices, Edit2, Folder, FolderDown, FolderOpen, FolderPlus, Hierarchy2, Moon, MoreH, PenNib, Plus, Settings, Sun, Trash2 } from "reicon-react"
 import { Bot, FolderGit2, GitBranch, GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react"
-import type { Project, ProjectBranchStatus, Thread, ThreadFolder, ThreadKind } from "@shared/types"
+import type { Project, ProjectBranchStatus, Thread, ThreadFolder } from "@shared/types"
 import { useTheme } from "@/components/theme-provider"
 import {
   AlertDialog,
@@ -68,7 +68,7 @@ interface AppSidebarProps {
   includeArchived: boolean
   onToggleArchived: () => void
   onSelectThread: (id: string) => void
-  onNewThread: (kind: ThreadKind) => void
+  onNewThread: () => void
   onRenameThread: (id: string, title: string) => Promise<void>
   onArchiveThread: (thread: Thread, archived: boolean) => Promise<void>
   onDeleteThread: (thread: Thread) => Promise<void>
@@ -136,37 +136,15 @@ export function AppSidebar(props: AppSidebarProps) {
       <SidebarHeader className="mrr-header gap-2 p-2">
         <ProjectSwitcher {...props} onRequestDelete={setDeletingProject} />
         <div className="flex gap-1 group-data-[collapsible=icon]:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-9 min-w-0 flex-1 justify-start gap-2"
-                disabled={!activeProject}
-              >
-                <ChatPlus className="size-4" />
-                New thread
-                <ChevronDown className="ml-auto size-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuItem onClick={() => props.onNewThread("build")} className="gap-2">
-                <ChatPlus className="size-4 text-muted-foreground" />
-                <span className="grid gap-0.5">
-                  <span>Build thread</span>
-                  <span className="text-xs text-muted-foreground">Run agents and flows on the repository</span>
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => props.onNewThread("product-design")} className="gap-2">
-                <PenTool2 className="size-4 text-muted-foreground" />
-                <span className="grid gap-0.5">
-                  <span>Product design session</span>
-                  <span className="text-xs text-muted-foreground">
-                    Discover and design with the Specialist and Designer
-                  </span>
-                </span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="outline"
+            className="h-9 min-w-0 flex-1 justify-start gap-2"
+            disabled={!activeProject}
+            onClick={props.onNewThread}
+          >
+            <ChatPlus className="size-4" />
+            New thread
+          </Button>
         </div>
       </SidebarHeader>
 
@@ -451,7 +429,8 @@ interface ThreadGitMeta {
 /** Icon + color for a thread row based on its linked branch and PR state. */
 function threadGitMeta(thread: Thread, branches: ProjectBranchStatus[] | undefined): ThreadGitMeta {
   if (!thread.branchName) {
-    return { icon: Chat, className: "text-muted-foreground/70", tooltip: null, isCurrent: false }
+    const icon = thread.kind === "product-design" ? PenNib : BrowserCode
+    return { icon, className: "text-muted-foreground/70", tooltip: null, isCurrent: false }
   }
   const branch = branches?.find((b) => b.name === thread.branchName)
   const pr = branch?.pullRequest ?? null

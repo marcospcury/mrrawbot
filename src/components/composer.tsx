@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ChangeEvent, ReactNode } from "react"
-import { Check, ChevronDown, FileText, Flash2, Hierarchy2, Paperclip, PenTool2, Settings2, TerminalSquare, Users, X } from "reicon-react"
+import { Check, ChevronDown, FileText, Flash2, Hierarchy2, Paperclip, PenNib, Settings2, TerminalSquare, Users, X } from "reicon-react"
 import { Bot, Brain } from "lucide-react"
 import { useChatContext } from "@copilotkit/react-ui"
 import {
@@ -43,7 +43,7 @@ import { providerMeta } from "@/lib/format"
 import { useProjectArtifacts, useSetThreadArtifacts, useThreadArtifacts, useThreads } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
-type StagedFile = {
+export type StagedFile = {
   id: string
   file: File
   name: string
@@ -51,6 +51,74 @@ type StagedFile = {
   kind: PromptAttachmentKind
   status?: "ready" | "error"
   error?: string
+}
+
+/**
+ * Local attachment staging shared by the in-thread composer and the
+ * new-thread landing view. Files are only staged here — uploading happens at
+ * send time, once a thread id exists.
+ */
+export function useComposerAttachments(disabled: boolean) {
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
+  const [errors, setErrors] = useState<string[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const isDisabled = disabled || isUploading
+
+  async function onAttachFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.target.files ?? [])]
+    event.target.value = ""
+    if (files.length === 0 || isDisabled) return
+
+    setIsUploading(true)
+    const accepted: StagedFile[] = []
+    const nextErrors: string[] = []
+    let nextCount = stagedFiles.length
+
+    try {
+      for (const file of files) {
+        const reason = await validateAttachment(file, nextCount)
+        if (reason) {
+          nextErrors.push(reason)
+          continue
+        }
+        const staged = buildStagedFile(file)
+        if (!staged.ok) {
+          nextErrors.push(staged.error)
+          continue
+        }
+        accepted.push(staged.value)
+        nextCount += 1
+      }
+    } finally {
+      setErrors(nextErrors)
+      if (accepted.length > 0) setStagedFiles((next) => [...next, ...accepted])
+      setIsUploading(false)
+    }
+  }
+
+  function removeStagedFile(id: string) {
+    setStagedFiles((next) => next.filter((file) => file.id !== id))
+  }
+
+  function openPicker() {
+    if (isDisabled) return
+    fileInputRef.current?.click()
+  }
+
+  return {
+    stagedFiles,
+    setStagedFiles,
+    errors,
+    setErrors,
+    isUploading,
+    setIsUploading,
+    isDisabled,
+    fileInputRef,
+    onAttachFiles,
+    removeStagedFile,
+    openPicker,
+  }
 }
 
 export function Composer({
@@ -64,6 +132,8 @@ export function Composer({
   onPersonaChange,
   prefill,
   onPrefillConsumed,
+  initialMessage,
+  onInitialMessageConsumed,
   inProgress,
   onSend,
   onStop,
@@ -79,6 +149,8 @@ export function Composer({
   onPersonaChange: (persona: ProductDesignPersona) => void
   prefill: string | null
   onPrefillConsumed: () => void
+  initialMessage?: string | null
+  onInitialMessageConsumed?: () => void
   inProgress: boolean
   onSend: (message: string) => void | Promise<unknown>
   onStop?: () => void
@@ -87,17 +159,13 @@ export function Composer({
   const isProductDesign = thread.kind === "product-design"
   const [text, setText] = useState("")
   const [isComposing, setIsComposing] = useState(false)
-  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
-  const [fileAttachmentErrors, setFileAttachmentErrors] = useState<string[]>([])
-  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false)
+  const attachments = useComposerAttachments(inProgress)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const chatContext = useChatContext()
   const run = useRunConfig({ flows, flowId, session, onChangeRun })
-  const canSend = chatReady && !inProgress && !isUploadingAttachments && text.trim().length > 0
+  const canSend = chatReady && !inProgress && !attachments.isUploading && text.trim().length > 0
   const canStop = inProgress
   const sendDisabled = !canSend && !canStop
-  const isAttachingDisabled = inProgress || isUploadingAttachments
   const buttonIcon = !chatReady
     ? chatContext.icons.spinnerIcon
     : inProgress
@@ -122,85 +190,57 @@ export function Composer({
     requestAnimationFrame(() => textareaRef.current?.focus())
   }, [prefill, onPrefillConsumed])
 
-  async function onAttachFiles(event: ChangeEvent<HTMLInputElement>) {
-    const files = [...(event.target.files ?? [])]
-    event.target.value = ""
-    if (files.length === 0 || isAttachingDisabled) return
-
-    setIsUploadingAttachments(true)
-    const accepted: StagedFile[] = []
-    const errors: string[] = []
-    let nextCount = stagedFiles.length
-
-    try {
-      for (const file of files) {
-        const reason = await validateAttachment(file, nextCount)
-        if (reason) {
-          errors.push(reason)
-          continue
-        }
-        const staged = buildStagedFile(file)
-        if (!staged.ok) {
-          errors.push(staged.error)
-          continue
-        }
-        accepted.push(staged.value)
-        nextCount += 1
-      }
-    } finally {
-      setFileAttachmentErrors(errors)
-      if (accepted.length > 0) setStagedFiles((next) => [...next, ...accepted])
-      setIsUploadingAttachments(false)
-    }
-  }
-
-  function removeStagedFile(id: string) {
-    setStagedFiles((next) => next.filter((file) => file.id !== id))
-  }
-
-  function openAttachmentPicker() {
-    if (isAttachingDisabled) return
-    fileInputRef.current?.click()
-  }
+  // First message of a thread started from the new-thread view: send it as
+  // soon as the chat connects. The ref guards StrictMode's double effects.
+  const initialSentRef = useRef(false)
+  useEffect(() => {
+    if (initialMessage == null || !chatReady || inProgress || initialSentRef.current) return
+    initialSentRef.current = true
+    onInitialMessageConsumed?.()
+    void onSend(initialMessage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMessage, chatReady, inProgress])
 
   async function send() {
     const message = text.trim()
-    if (!message || inProgress || isUploadingAttachments) return
+    if (!message || inProgress || attachments.isUploading) return
 
-    if (stagedFiles.length === 0) {
+    if (attachments.stagedFiles.length === 0) {
+      // Clear optimistically — onSend resolves only after the request lands,
+      // which is too late for the composer to feel responsive.
+      attachments.setErrors([])
+      setText("")
+      requestAnimationFrame(() => textareaRef.current?.focus())
       try {
         await onSend(message)
-        setFileAttachmentErrors([])
-        setText("")
-        requestAnimationFrame(() => textareaRef.current?.focus())
       } catch (err) {
-        setFileAttachmentErrors([errorMessage(err)])
+        setText(message)
+        attachments.setErrors([errorMessage(err)])
       }
       return
     }
 
-    setFileAttachmentErrors([])
-    setIsUploadingAttachments(true)
+    attachments.setErrors([])
+    attachments.setIsUploading(true)
     try {
-      const attachments = await uploadStagedFiles(thread.id, stagedFiles)
-      const finalMessage = `${message}\n\n${formatAttachedFiles(attachments)}`
-      await onSend(finalMessage)
+      const uploaded = await uploadStagedFiles(thread.id, attachments.stagedFiles)
+      const finalMessage = `${message}\n\n${formatAttachedFiles(uploaded)}`
+      // Uploads done — clear before the send request so the composer resets
+      // the moment the message leaves.
       setText("")
-      setStagedFiles([])
-      setFileAttachmentErrors([])
+      attachments.setStagedFiles([])
       requestAnimationFrame(() => textareaRef.current?.focus())
+      try {
+        await onSend(finalMessage)
+      } catch (err) {
+        setText(message)
+        attachments.setErrors([errorMessage(err)])
+      }
     } catch (err) {
-      setFileAttachmentErrors([errorMessage(err)])
+      attachments.setErrors([errorMessage(err)])
     } finally {
-      setIsUploadingAttachments(false)
+      attachments.setIsUploading(false)
     }
-  }
-
-  function selectFlowMode() {
-    if (run.flow) return
-    const firstFlow = flows[0]
-    if (firstFlow) run.selectFlow(firstFlow.id)
-    else onManageFlows()
   }
 
   return (
@@ -208,18 +248,23 @@ export function Composer({
       <div className="mrr-composer">
         {!isProductDesign && <AttachedArtifactChips thread={thread} />}
         <AttachedFileChips
-          files={stagedFiles}
-          errors={fileAttachmentErrors}
-          onRemove={removeStagedFile}
-          isDisabled={isAttachingDisabled}
+          files={attachments.stagedFiles}
+          errors={attachments.errors}
+          onRemove={attachments.removeStagedFile}
+          isDisabled={attachments.isDisabled}
         />
         <div className="mrr-composer-main">
           <textarea
             ref={textareaRef}
             data-testid="copilot-chat-textarea"
             rows={1}
+            // Keep password managers from offering autofill on the prompt field.
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             value={text}
-            placeholder={isProductDesign ? "Describe the product or feature…" : "Describe a coding task…"}
+            placeholder={isProductDesign ? "Describe the product or feature…" : "Describe a task…"}
             onChange={(e) => setText(e.target.value)}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
@@ -233,71 +278,20 @@ export function Composer({
         </div>
 
         <div className="mrr-composer-controls">
-          {!isProductDesign && (
-            <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="sr-only"
-            accept={attachmentInputAccept}
-            onChange={onAttachFiles}
-            disabled={isAttachingDisabled}
+          <ComposerRunControls
+            run={run}
+            flows={flows}
+            onManageFlows={onManageFlows}
+            isProductDesign={isProductDesign}
+            persona={persona}
+            onPersonaChange={onPersonaChange}
+            afterModeToggle={
+              <>
+                <AttachFilesButton attachments={attachments} />
+                {!isProductDesign && <AttachArtifactsPill thread={thread} />}
+              </>
+            }
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            className="rounded-full text-[11px]"
-            disabled={isAttachingDisabled}
-            onClick={openAttachmentPicker}
-            title="Attach files"
-            aria-label="Attach files"
-          >
-            <Paperclip className="size-3" />
-          </Button>
-          {!isProductDesign && <AttachArtifactsPill thread={thread} />}
-          {!isProductDesign && run.flow ? (
-            <>
-              <FlowPicker run={run} flows={flows} onManageFlows={onManageFlows} />
-              <FlowProviderSummary providers={run.flowProviders} unavailable={run.unavailableFlowProviders} />
-            </>
-          ) : (
-            <>
-              <ModelCombobox
-                compact
-                value={run.selectedModel}
-                provider={run.active.provider}
-                catalog={run.catalog}
-                align="start"
-                onSelect={({ model, provider }) => run.setModel(model, provider)}
-              />
-              <EffortPill session={run.active} onEffort={run.setEffort} />
-              {run.active.provider === "codex" && run.fastModels.includes(run.selectedModel) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  aria-pressed={run.active.fast}
-                  onClick={() => run.setFast(!run.active.fast)}
-                  className={cn(
-                    "rounded-full text-[11px]",
-                    run.active.fast && "border-amber-400/50 bg-amber-400/10 text-amber-400 hover:text-amber-400",
-                  )}
-                  title="Fast service tier"
-                >
-                  <Flash2 className="size-3" />
-                  <span className="mrr-pill-label">Fast</span>
-                </Button>
-              )}
-              {isProductDesign ? (
-                <PersonaPill persona={persona} onPersona={onPersonaChange} />
-              ) : (
-                <RolePill role={run.active.role} onRole={run.setRole} />
-              )}
-            </>
-          )}
           <div className="copilotKitInputControls mrr-composer-send">
             <button
               type="button"
@@ -318,6 +312,85 @@ export function Composer({
   )
 }
 
+/**
+ * The run-config pill cluster: single/flow toggle, then either the flow picker
+ * or model + effort + fast + role/persona. Shared between the in-thread
+ * composer and the new-thread landing view.
+ */
+export function ComposerRunControls({
+  run,
+  flows,
+  onManageFlows,
+  isProductDesign,
+  persona,
+  onPersonaChange,
+  afterModeToggle,
+}: {
+  run: ReturnType<typeof useRunConfig>
+  flows: FlowConfig[]
+  onManageFlows: () => void
+  isProductDesign: boolean
+  persona: ProductDesignPersona
+  onPersonaChange: (persona: ProductDesignPersona) => void
+  afterModeToggle?: ReactNode
+}) {
+  function selectFlowMode() {
+    if (run.flow) return
+    const firstFlow = flows[0]
+    if (firstFlow) run.selectFlow(firstFlow.id)
+    else onManageFlows()
+  }
+
+  return (
+    <>
+      {!isProductDesign && (
+        <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
+      )}
+      {afterModeToggle}
+      {!isProductDesign && run.flow ? (
+        <>
+          <FlowPicker run={run} flows={flows} onManageFlows={onManageFlows} />
+          <FlowProviderSummary providers={run.flowProviders} unavailable={run.unavailableFlowProviders} />
+        </>
+      ) : (
+        <>
+          <ModelCombobox
+            compact
+            value={run.selectedModel}
+            provider={run.active.provider}
+            catalog={run.catalog}
+            align="start"
+            onSelect={({ model, provider }) => run.setModel(model, provider)}
+          />
+          <EffortPill session={run.active} onEffort={run.setEffort} />
+          {run.active.provider === "codex" && run.fastModels.includes(run.selectedModel) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              aria-pressed={run.active.fast}
+              onClick={() => run.setFast(!run.active.fast)}
+              className={cn(
+                "rounded-full text-[11px]",
+                run.active.fast && "border-amber-400/50 bg-amber-400/10 text-amber-400 hover:text-amber-400",
+              )}
+              title="Fast service tier"
+            >
+              <Flash2 className="size-3" />
+              <span className="mrr-pill-label">Fast</span>
+            </Button>
+          )}
+          {isProductDesign ? (
+            <PersonaPill persona={persona} onPersona={onPersonaChange} />
+          ) : (
+            <RolePill role={run.active.role} onRole={run.setRole} />
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
 const attachmentInputAccept = Array.from(
   new Set([
     ...ALLOWED_ATTACHMENT_EXTENSIONS.text,
@@ -329,6 +402,39 @@ const attachmentInputAccept = Array.from(
   .map((ext) => `.${ext}`)
   .join(",")
 
+/** Hidden file input + paperclip pill for a useComposerAttachments instance. */
+export function AttachFilesButton({
+  attachments,
+}: {
+  attachments: ReturnType<typeof useComposerAttachments>
+}) {
+  return (
+    <>
+      <input
+        ref={attachments.fileInputRef}
+        type="file"
+        multiple
+        className="sr-only"
+        accept={attachmentInputAccept}
+        onChange={attachments.onAttachFiles}
+        disabled={attachments.isDisabled}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        className="rounded-full text-[11px]"
+        disabled={attachments.isDisabled}
+        onClick={attachments.openPicker}
+        title="Attach files"
+        aria-label="Attach files"
+      >
+        <Paperclip className="size-3" />
+      </Button>
+    </>
+  )
+}
+
 function formatAttachmentSize(bytes: number): string {
   const units = ["B", "KB", "MB", "GB", "TB"]
   if (bytes === 0) return "0 B"
@@ -337,7 +443,7 @@ function formatAttachmentSize(bytes: number): string {
   return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`
 }
 
-function errorMessage(err: unknown): string {
+export function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message
   return "Unable to send message with attachments. Please retry."
 }
@@ -348,7 +454,7 @@ function getFileExtension(filename: string): string {
   return filename.slice(dotIndex + 1).toLowerCase()
 }
 
-function formatAttachedFiles(attachments: PromptAttachmentUploadResponse[]): string {
+export function formatAttachedFiles(attachments: PromptAttachmentUploadResponse[]): string {
   const lines = attachments.map((attachment) => `- ${attachment.absolutePath} (${attachment.kind})`)
   return `# Attached files\n${lines.join("\n")}`
 }
@@ -378,7 +484,7 @@ function fileToBase64DataUrl(file: File): Promise<string> {
   })
 }
 
-async function uploadStagedFiles(
+export async function uploadStagedFiles(
   threadId: string,
   files: StagedFile[],
 ): Promise<PromptAttachmentUploadResponse[]> {
@@ -439,7 +545,7 @@ function buildStagedFile(file: File): { ok: true; value: StagedFile } | { ok: fa
   }
 }
 
-function AttachedFileChips({
+export function AttachedFileChips({
   files,
   errors,
   onRemove,
@@ -453,13 +559,13 @@ function AttachedFileChips({
   if (files.length === 0 && errors.length === 0) return null
 
   return (
-    <div className="px-3 pt-2">
+    <div>
       {files.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {files.map((file) => (
             <span
               key={file.id}
-              className="inline-flex max-w-[18rem] items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
+              className="inline-flex h-6 max-w-[18rem] items-center gap-1.5 rounded-full border bg-muted/40 px-2 text-xs text-muted-foreground"
             >
               <FileText className="size-3 shrink-0" />
               <span className="truncate">{file.name}</span>
@@ -690,17 +796,12 @@ function PersonaPill({
   )
 }
 
-const ARTIFACT_ICONS = { spec: FileText, prototype: PenTool2, prompt: TerminalSquare } as const
+const ARTIFACT_ICONS = { spec: FileText, prototype: PenNib, prompt: TerminalSquare } as const
 
 function AttachArtifactsPill({ thread }: { thread: Thread }) {
-  const artifacts = useProjectArtifacts(thread.projectId)
-  const threads = useThreads(thread.projectId, true)
   const attached = useThreadArtifacts(thread.id)
   const setAttached = useSetThreadArtifacts(thread.id)
   const attachedIds = new Set((attached.data ?? []).map((a) => a.id))
-  // Only artifacts in this thread's folder scope can be attached.
-  const all = scopeArtifacts(artifacts.data ?? [], threads.data ?? [], thread.folderId)
-  if (all.length === 0) return null
 
   const toggle = (artifact: ArtifactInfo) => {
     const next = attachedIds.has(artifact.id)
@@ -708,6 +809,34 @@ function AttachArtifactsPill({ thread }: { thread: Thread }) {
       : [...attachedIds, artifact.id]
     setAttached.mutate(next)
   }
+
+  return (
+    <ArtifactsPickerPill
+      projectId={thread.projectId}
+      folderId={thread.folderId}
+      attachedIds={attachedIds}
+      onToggle={toggle}
+    />
+  )
+}
+
+/** Artifact picker pill with controlled selection — usable before a thread exists. */
+export function ArtifactsPickerPill({
+  projectId,
+  folderId,
+  attachedIds,
+  onToggle,
+}: {
+  projectId: string
+  folderId: string | null
+  attachedIds: Set<string>
+  onToggle: (artifact: ArtifactInfo) => void
+}) {
+  const artifacts = useProjectArtifacts(projectId)
+  const threads = useThreads(projectId, true)
+  // Only artifacts in the thread's folder scope can be attached.
+  const all = scopeArtifacts(artifacts.data ?? [], threads.data ?? [], folderId)
+  if (all.length === 0) return null
 
   return (
     <Popover>
@@ -719,7 +848,7 @@ function AttachArtifactsPill({ thread }: { thread: Thread }) {
           className={cn("rounded-full text-[11px]", attachedIds.size > 0 && "border-primary/50 text-primary")}
           title="Attach product-design artifacts"
         >
-          <PenTool2 className="size-3" />
+          <PenNib className="size-3" />
           {attachedIds.size > 0 && <span className="mrr-pill-label">{attachedIds.size}</span>}
         </Button>
       </PopoverTrigger>
@@ -734,7 +863,7 @@ function AttachArtifactsPill({ thread }: { thread: Thread }) {
               key={artifact.id}
               type="button"
               className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
-              onClick={() => toggle(artifact)}
+              onClick={() => onToggle(artifact)}
             >
               <Check className={cn("mt-0.5 size-3.5", attachedIds.has(artifact.id) ? "opacity-100" : "opacity-0")} />
               <Icon className="mt-0.5 size-3.5 text-muted-foreground" />
@@ -754,15 +883,31 @@ function AttachedArtifactChips({ thread }: { thread: Thread }) {
   const attached = useThreadArtifacts(thread.id)
   const setAttached = useSetThreadArtifacts(thread.id)
   const list = attached.data ?? []
-  if (list.length === 0) return null
   return (
-    <div className="flex flex-wrap gap-1.5 px-3 pt-2">
-      {list.map((artifact) => {
+    <ArtifactChips
+      artifacts={list}
+      onDetach={(id) => setAttached.mutate(list.filter((a) => a.id !== id).map((a) => a.id))}
+    />
+  )
+}
+
+/** Chip row for attached artifacts — controlled, usable before a thread exists. */
+export function ArtifactChips({
+  artifacts,
+  onDetach,
+}: {
+  artifacts: ArtifactInfo[]
+  onDetach: (id: string) => void
+}) {
+  if (artifacts.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {artifacts.map((artifact) => {
         const Icon = ARTIFACT_ICONS[artifact.kind]
         return (
           <span
             key={artifact.id}
-            className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
+            className="inline-flex h-6 max-w-[16rem] items-center gap-1.5 rounded-full border bg-muted/40 px-2 text-xs text-muted-foreground"
           >
             <Icon className="size-3 shrink-0" />
             <span className="truncate">{artifact.title}</span>
@@ -770,7 +915,7 @@ function AttachedArtifactChips({ thread }: { thread: Thread }) {
               type="button"
               aria-label={`Detach ${artifact.title}`}
               className="shrink-0 rounded-full hover:text-foreground"
-              onClick={() => setAttached.mutate(list.filter((a) => a.id !== artifact.id).map((a) => a.id))}
+              onClick={() => onDetach(artifact.id)}
             >
               <X className="size-3" />
             </button>

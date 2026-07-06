@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { AnglesLeft, Chat, DiagramTree, PenTool2 } from "reicon-react"
+import { AnglesLeft, Chat, DiagramTree, PenNib } from "reicon-react"
 import { GitCompareArrows } from "lucide-react"
 import { ChangesView } from "@/components/changes-view"
 import { ArtifactsTab } from "@/components/artifacts-tab"
@@ -95,7 +95,7 @@ export function WorkspacePanel({
                 Changes
               </TabsTrigger>
               <TabsTrigger value="design" className="relative gap-1.5">
-                <PenTool2 className="size-4" />
+                <PenNib className="size-4" />
                 Artifacts
                 {hasNewArtifacts && (
                   <span

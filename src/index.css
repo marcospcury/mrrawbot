@@ -186,6 +186,11 @@
   .is-electron.is-win {
     --mrr-titlebar-h: 8px;
   }
+  /* Browser build: a little breathing room from the window edge (Electron
+     already reserves title-bar space instead). */
+  html:not(.is-electron) {
+    --mrr-titlebar-h: 8px;
+  }
 
   .mrr-header {
     /* Reserve space for the OS window controls up top, plus matching bottom
@@ -333,6 +338,8 @@ cpk-web-inspector,
   background: var(--card);
   box-shadow: 0 10px 30px color-mix(in oklch, var(--foreground) 8%, transparent);
   padding: 0.625rem;
+  /* Shared-element morph from the new-thread landing composer. */
+  view-transition-name: mrr-composer;
 }
 .mrr-chat .mrr-composer-main {
   display: flex;
@@ -357,6 +364,7 @@ cpk-web-inspector,
   align-items: center;
   gap: 0.375rem;
   overflow-x: auto;
+  margin-top: 0.25rem;
   padding-bottom: 0.125rem;
 }
 .mrr-chat .mrr-composer-send {
