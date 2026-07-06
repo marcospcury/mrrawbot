@@ -42,38 +42,31 @@ export function ModelCombobox({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const sorted = useMemo(() => sortModels(catalog), [catalog])
-  const exact = catalog.some((m) => m.id.toLowerCase() === search.trim().toLowerCase())
+  // Only connected providers are offered: unconfigured providers' models are
+  // hidden entirely (they can't run anyway — set them up in Settings first).
+  const usable = useMemo(() => sortModels(catalog.filter((m) => m.available)), [catalog])
+  const exact = usable.some((m) => m.id.toLowerCase() === search.trim().toLowerCase())
   const selectedProvider = provider ?? catalog.find((m) => m.id === value)?.provider
 
-  // A provider is selectable when it's configured (every catalog entry of a
-  // provider carries the same availability flag).
-  const providerAvailable = useMemo(() => {
-    const map = new Map<Provider, boolean>()
-    for (const m of catalog) map.set(m.provider, m.available)
-    return map
-  }, [catalog])
-
-  // Group by provider, configured providers first (in canonical order), so the
-  // picker reads as one section per provider instead of an anonymous model soup.
+  // Group by provider (in canonical order) so the picker reads as one section
+  // per provider instead of an anonymous model soup.
   const groups = useMemo(() => {
     const byProvider = new Map<Provider, ModelEntry[]>()
-    for (const m of sorted) {
+    for (const m of usable) {
       if (!byProvider.has(m.provider)) byProvider.set(m.provider, [])
       byProvider.get(m.provider)!.push(m)
     }
-    return [...PROVIDERS]
-      .filter((p) => byProvider.has(p))
-      .sort((a, b) => Number(providerAvailable.get(b) ?? false) - Number(providerAvailable.get(a) ?? false))
-      .map((p) => ({
-        provider: p,
-        available: providerAvailable.get(p) ?? false,
-        visible: byProvider.get(p)!.filter((m) => !m.hidden),
-        hidden: byProvider.get(p)!.filter((m) => m.hidden),
-      }))
-  }, [sorted, providerAvailable])
+    return PROVIDERS.filter((p) => byProvider.has(p)).map((p) => ({
+      provider: p,
+      visible: byProvider.get(p)!.filter((m) => !m.hidden),
+      hidden: byProvider.get(p)!.filter((m) => m.hidden),
+    }))
+  }, [usable])
 
-  const typedModelProviders = PROVIDERS.filter((p) => providerAvailable.has(p))
+  const typedModelProviders = useMemo(
+    () => PROVIDERS.filter((p) => usable.some((m) => m.provider === p)),
+    [usable],
+  )
 
   function choose(model: string, nextProvider: Provider) {
     onSelect({ model, provider: nextProvider })
@@ -109,6 +102,11 @@ export function ModelCombobox({
         <Command shouldFilter>
           <CommandInput placeholder="Search or type a model id…" value={search} onValueChange={setSearch} />
           <CommandList>
+            {groups.length === 0 && (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                No providers connected yet — set one up in Settings → Providers.
+              </p>
+            )}
             {groups.map((group) => (
               <CommandGroup
                 key={group.provider}
@@ -116,7 +114,6 @@ export function ModelCombobox({
                   <span className="flex items-center gap-1.5">
                     <ProviderDot provider={group.provider} className="size-1.5" />
                     {providerMeta(group.provider).label}
-                    {!group.available && <span className="font-normal opacity-70">— not set up</span>}
                   </span>
                 }
               >
@@ -177,19 +174,12 @@ function ModelRow({
   onChoose: (model: string, provider: Provider) => void
 }) {
   return (
-    // Unavailable entries stay selectable — a flow can reference a provider
-    // you'll configure later; the run itself is gated server-side.
-    <CommandItem
-      value={`${entry.id} ${providerMeta(entry.provider).label}`}
-      onSelect={() => onChoose(entry.id, entry.provider)}
-      className={cn(!entry.available && "text-muted-foreground")}
-    >
+    <CommandItem value={`${entry.id} ${providerMeta(entry.provider).label}`} onSelect={() => onChoose(entry.id, entry.provider)}>
       <Check className={cn("size-3.5", selected ? "opacity-100" : "opacity-0")} />
-      <ProviderDot provider={entry.provider} className={cn(!entry.available && "opacity-40")} />
+      <ProviderDot provider={entry.provider} />
       <span className="min-w-0 flex-1 truncate">{entry.id}</span>
       {entry.fast && <Flash2 className="size-3.5 text-amber-400" />}
       {entry.hidden && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">hidden</span>}
-      {!entry.available && <span className="text-[10px] text-muted-foreground">set up in Settings</span>}
     </CommandItem>
   )
 }
