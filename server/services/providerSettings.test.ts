@@ -68,4 +68,30 @@ describe("provider settings", () => {
     expect(env.ollamaApiKey).toBe(defaultKey)
     expect(getProviderConfig().claudeBinPathStored).toBe(false)
   })
+
+  it("round-trips OpenRouter, Hugging Face, and Cerebras API keys", async () => {
+    const dbModule = await import("../db/db.ts")
+    closeDb = dbModule.closeDb
+    const { env } = await import("../env.ts")
+    const { getSetting } = await import("../db/repos/settings.ts")
+    const { getProviderConfig, updateProviderConfig } = await import("./providerSettings.ts")
+
+    updateProviderConfig({
+      openrouterApiKey: "sk-or-123",
+      huggingfaceApiKey: "hf-456",
+      cerebrasApiKey: "csk-789",
+    })
+    expect(env.openrouterApiKey).toBe("sk-or-123")
+    expect(env.huggingfaceApiKey).toBe("hf-456")
+    expect(env.cerebrasApiKey).toBe("csk-789")
+    expect(getSetting<string>("provider.openrouterApiKey")).not.toContain("sk-or-123")
+
+    const view = getProviderConfig()
+    expect(view.openrouterApiKeySet).toBe(true)
+    expect(view.huggingfaceApiKeyStored).toBe(true)
+    expect(view.cerebrasApiKeySet).toBe(true)
+
+    updateProviderConfig({ openrouterApiKey: null, huggingfaceApiKey: null, cerebrasApiKey: null })
+    expect(getProviderConfig().openrouterApiKeyStored).toBe(false)
+  })
 })

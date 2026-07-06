@@ -47,6 +47,13 @@ export function useRunConfig({
     return out
   }, [flow])
 
+  // Flow providers that aren't set up yet: the flow stays selectable, but the
+  // run will be refused server-side until these are configured (or swapped).
+  const unavailableFlowProviders = useMemo(() => {
+    if (catalog.length === 0) return [] // catalog still loading — don't flag anything
+    return flowProviders.filter((p) => !catalog.some((m) => m.provider === p && m.available))
+  }, [flowProviders, catalog])
+
   function setSession(next: SessionConfig) {
     onChangeRun({ flowId: null, session: next })
   }
@@ -82,6 +89,7 @@ export function useRunConfig({
     fastModels,
     flow,
     flowProviders,
+    unavailableFlowProviders,
     selectedModel,
     selectSingle,
     selectFlow,

@@ -14,6 +14,9 @@ const KEYS = {
   claudeBinPath: "provider.claudeBinPath",
   codexBinPath: "provider.codexBinPath",
   ollamaApiKey: "provider.ollamaApiKey",
+  openrouterApiKey: "provider.openrouterApiKey",
+  huggingfaceApiKey: "provider.huggingfaceApiKey",
+  cerebrasApiKey: "provider.cerebrasApiKey",
 } as const
 
 type Field = keyof typeof KEYS
@@ -24,6 +27,9 @@ const defaults = {
   claudeBinPath: env.claudeBinPath,
   codexBinPath: env.codexBinPath,
   ollamaApiKey: env.ollamaApiKey,
+  openrouterApiKey: env.openrouterApiKey,
+  huggingfaceApiKey: env.huggingfaceApiKey,
+  cerebrasApiKey: env.cerebrasApiKey,
 }
 
 function readStored(field: Field): string | null {
@@ -57,6 +63,12 @@ export function getProviderConfig(): ProviderConfig {
     codexBinPathStored: readStored("codexBinPath") !== null,
     ollamaApiKeySet: !!env.ollamaApiKey,
     ollamaApiKeyStored: readStored("ollamaApiKey") !== null,
+    openrouterApiKeySet: !!env.openrouterApiKey,
+    openrouterApiKeyStored: readStored("openrouterApiKey") !== null,
+    huggingfaceApiKeySet: !!env.huggingfaceApiKey,
+    huggingfaceApiKeyStored: readStored("huggingfaceApiKey") !== null,
+    cerebrasApiKeySet: !!env.cerebrasApiKey,
+    cerebrasApiKeyStored: readStored("cerebrasApiKey") !== null,
   }
 }
 

@@ -48,8 +48,8 @@ export function WelcomeScreen({
             <>
               <h1 className="text-xl font-semibold tracking-tight">Welcome to mrrawbot</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Orchestrate Claude Code, Codex, and Ollama Cloud agents over your local repositories. Pick a
-                tracked repository to get started.
+                Orchestrate Claude Code, Codex, Ollama Cloud, OpenRouter, Hugging Face, and Cerebras agents
+                over your local repositories. Pick a tracked repository to get started.
               </p>
               <Button className="mt-6" onClick={onAddRepo}>
                 <FolderGit2 className="size-4" />

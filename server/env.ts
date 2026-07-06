@@ -71,6 +71,18 @@ export interface Env {
   ollamaApiKey: string | null
   ollamaDefaultModel: string
 
+  openrouterBaseUrl: string
+  openrouterApiKey: string | null
+  openrouterDefaultModel: string
+
+  huggingfaceBaseUrl: string
+  huggingfaceApiKey: string | null
+  huggingfaceDefaultModel: string
+
+  cerebrasBaseUrl: string
+  cerebrasApiKey: string | null
+  cerebrasDefaultModel: string
+
   isProduction: boolean
 }
 
@@ -142,6 +154,21 @@ export const env: Env = {
   ollamaApiKey:
     process.env.MRRAWBOT_OLLAMA_API_KEY ?? process.env.OLLAMA_API_KEY ?? null,
   ollamaDefaultModel: process.env.MRRAWBOT_OLLAMA_MODEL ?? "qwen3-coder:480b-cloud",
+
+  openrouterBaseUrl: "https://openrouter.ai/api/v1",
+  openrouterApiKey:
+    process.env.MRRAWBOT_OPENROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY ?? null,
+  openrouterDefaultModel: process.env.MRRAWBOT_OPENROUTER_MODEL ?? "qwen/qwen3-coder",
+
+  huggingfaceBaseUrl: "https://router.huggingface.co/v1",
+  huggingfaceApiKey: process.env.MRRAWBOT_HF_TOKEN ?? process.env.HF_TOKEN ?? null,
+  huggingfaceDefaultModel:
+    process.env.MRRAWBOT_HF_MODEL ?? "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+
+  cerebrasBaseUrl: "https://api.cerebras.ai/v1",
+  cerebrasApiKey:
+    process.env.MRRAWBOT_CEREBRAS_API_KEY ?? process.env.CEREBRAS_API_KEY ?? null,
+  cerebrasDefaultModel: process.env.MRRAWBOT_CEREBRAS_MODEL ?? "qwen-3-coder-480b",
 
   isProduction: process.env.NODE_ENV === "production",
 }

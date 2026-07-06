@@ -1,18 +1,10 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph"
 import type { FlowConfig, FlowStep, Provider } from "@shared/types.ts"
-import { runClaude } from "../providers/claude.ts"
-import { runCodex } from "../providers/codex.ts"
-import { runOllama } from "../providers/ollama.ts"
+import { RUNNERS } from "../providers/registry.ts"
 import type { ProviderRunner } from "../providers/types.ts"
 import { resolveRolePrompt, roleSkillDirs } from "../roles/index.ts"
 import type { Emit } from "./events.ts"
 import { PLAN_OUTPUT_CONTRACT, parsePlan, type ParsedPlan, type ParsedPlanStep } from "./plan.ts"
-
-const RUNNERS: Record<Provider, ProviderRunner> = {
-  claude: runClaude,
-  codex: runCodex,
-  ollama: runOllama,
-}
 
 const OrchState = Annotation.Root({
   task: Annotation<string>(),

@@ -13,18 +13,11 @@ import type {
   SessionConfig,
 } from "@shared/types.ts"
 import { listArtifacts } from "../../db/repos/artifacts.ts"
-import { runClaude } from "../providers/claude.ts"
-import { runCodex } from "../providers/codex.ts"
-import { makeOllama, runOllama } from "../providers/ollama.ts"
+import { makeOllama } from "../providers/ollama.ts"
+import { RUNNERS } from "../providers/registry.ts"
 import type { ProviderRunner } from "../providers/types.ts"
 import { resolveRolePrompt, roleSkillDirs } from "../roles/index.ts"
 import type { Emit } from "./events.ts"
-
-const RUNNERS: Record<Provider, ProviderRunner> = {
-  claude: runClaude,
-  codex: runCodex,
-  ollama: runOllama,
-}
 
 type Persona = "specialist" | "designer"
 type Route = Persona | "both"

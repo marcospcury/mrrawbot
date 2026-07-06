@@ -39,6 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRunConfig, type RunConfig } from "@/hooks/use-run-config"
 import { api } from "@/lib/api"
+import { providerMeta } from "@/lib/format"
 import { useProjectArtifacts, useSetThreadArtifacts, useThreadArtifacts, useThreads } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
@@ -242,7 +243,7 @@ export function Composer({
           {!isProductDesign && run.flow ? (
             <>
               <FlowPicker run={run} flows={flows} onManageFlows={onManageFlows} />
-              <FlowProviderSummary providers={run.flowProviders} />
+              <FlowProviderSummary providers={run.flowProviders} unavailable={run.unavailableFlowProviders} />
             </>
           ) : (
             <>
@@ -591,15 +592,33 @@ function FlowPicker({
   )
 }
 
-function FlowProviderSummary({ providers }: { providers: ReturnType<typeof useRunConfig>["flowProviders"] }) {
+function FlowProviderSummary({
+  providers,
+  unavailable,
+}: {
+  providers: ReturnType<typeof useRunConfig>["flowProviders"]
+  unavailable: ReturnType<typeof useRunConfig>["unavailableFlowProviders"]
+}) {
+  const missing = new Set(unavailable)
   return (
     <div className="flex min-w-0 items-center gap-1">
       {providers.slice(0, 5).map((p, i) => (
         <div key={p} className="flex items-center gap-1">
           {i > 0 && <span className="text-[11px] text-muted-foreground">→</span>}
-          <ProviderPill provider={p} />
+          <ProviderPill
+            provider={p}
+            className={cn(missing.has(p) && "opacity-50 [&>span:first-child]:bg-amber-400")}
+          />
         </div>
       ))}
+      {unavailable.length > 0 && (
+        <span
+          className="ml-1 truncate text-[11px] text-amber-500"
+          title="This flow uses providers that aren't configured. Set them up in Settings → Providers, or edit the flow to use different providers."
+        >
+          {unavailable.map((p) => providerMeta(p).short).join(", ")} not set up
+        </span>
+      )}
     </div>
   )
 }

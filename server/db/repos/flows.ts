@@ -1,4 +1,4 @@
-import type { Effort, FlowConfig, FlowStep, FlowStepLoop, NewFlowConfig, Provider } from "@shared/types.ts"
+import { PROVIDERS, type Effort, type FlowConfig, type FlowStep, type FlowStepLoop, type NewFlowConfig, type Provider } from "@shared/types.ts"
 import { db, newId, now } from "../db.ts"
 import { getSetting, setSetting } from "./settings.ts"
 
@@ -12,7 +12,7 @@ interface FlowRow {
   updated_at: string
 }
 
-const VALID_PROVIDERS: Provider[] = ["claude", "codex", "ollama"]
+const VALID_PROVIDERS: Provider[] = PROVIDERS
 const DELETED_BUILTIN_FLOW_IDS_KEY = "deletedBuiltinFlowIds"
 
 /** Coerce a raw stored step into a complete, valid FlowStep (tolerant of older shapes). */

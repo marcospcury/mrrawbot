@@ -27,7 +27,14 @@ providersRouter.get("/config", (_req, res) => {
 providersRouter.put("/config", (req, res) => {
   const body = req.body as ProviderConfigPatch
   const patch: ProviderConfigPatch = {}
-  for (const field of ["claudeBinPath", "codexBinPath", "ollamaApiKey"] as const) {
+  for (const field of [
+    "claudeBinPath",
+    "codexBinPath",
+    "ollamaApiKey",
+    "openrouterApiKey",
+    "huggingfaceApiKey",
+    "cerebrasApiKey",
+  ] as const) {
     if (!(field in body)) continue
     const value = body[field]
     if (value !== null && typeof value !== "string") {
