@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { estimateCodexCostUsd, estimateOllamaCostUsd } from "./pricing.ts"
+import {
+  estimateCerebrasCostUsd,
+  estimateCodexCostUsd,
+  estimateOllamaCostUsd,
+  makeCatalogCostEstimator,
+} from "./pricing.ts"
 
 describe("estimateCodexCostUsd", () => {
   it("uses standard pricing and cached input discount", () => {
@@ -83,5 +88,45 @@ describe("estimateOllamaCostUsd", () => {
         outputTokens: 1_000_000,
       }),
     ).toBeUndefined()
+  })
+})
+
+describe("estimateCerebrasCostUsd", () => {
+  it("uses the hand-maintained Cerebras snapshot", () => {
+    expect(
+      estimateCerebrasCostUsd("zai-glm-4.6", {
+        inputTokens: 1_000_000,
+        outputTokens: 100_000,
+      }),
+    ).toBeCloseTo(2.525)
+  })
+
+  it("does not invent pricing for unknown models", () => {
+    expect(
+      estimateCerebrasCostUsd("mystery-model", { inputTokens: 1_000, outputTokens: 1_000 }),
+    ).toBeUndefined()
+  })
+})
+
+describe("makeCatalogCostEstimator", () => {
+  const usage = { inputTokens: 1_000_000, outputTokens: 100_000 }
+
+  it("prices models from the fetched catalog and caches it", async () => {
+    let fetches = 0
+    const estimate = makeCatalogCostEstimator(async () => {
+      fetches++
+      return new Map([["vendor/model", { inputPerMillion: 2, outputPerMillion: 10 }]])
+    })
+    expect(await estimate("vendor/model", usage)).toBeCloseTo(3)
+    expect(await estimate("Vendor/Model", usage)).toBeCloseTo(3)
+    expect(await estimate("vendor/other", usage)).toBeUndefined()
+    expect(fetches).toBe(1)
+  })
+
+  it("returns undefined while the catalog is unreachable", async () => {
+    const estimate = makeCatalogCostEstimator(async () => {
+      throw new Error("network down")
+    })
+    expect(await estimate("vendor/model", usage)).toBeUndefined()
   })
 })

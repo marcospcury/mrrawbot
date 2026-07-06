@@ -1,5 +1,6 @@
 import { env } from "../../env.ts"
 import { openAICompatibleAdapter } from "./openaiCompatible.ts"
+import { estimateCerebrasCostUsd } from "./pricing.ts"
 import type { ChatProviderAdapter } from "./types.ts"
 
 // Snapshot of the Cerebras Inference catalog, 2026-07-05. The live listing
@@ -22,4 +23,6 @@ export const cerebrasAdapter: ChatProviderAdapter = openAICompatibleAdapter({
   fallbackModels: CEREBRAS_FALLBACK_MODELS,
   setupHint: "Add your Cerebras API key in Settings (get one at cloud.cerebras.ai).",
   listRequiresKey: true,
+  // Cerebras' API exposes no pricing; hand-maintained snapshot in pricing.ts.
+  estimateCostUsd: estimateCerebrasCostUsd,
 })

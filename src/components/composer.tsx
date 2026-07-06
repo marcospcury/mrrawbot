@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ChangeEvent, ReactNode } from "react"
-import { Check, ChevronDown, FileText, Flash2, Hierarchy2, Paperclip, PenTool2, Plus, Settings2, TerminalSquare, Users, X } from "reicon-react"
+import { Check, ChevronDown, FileText, Flash2, Hierarchy2, Paperclip, PenTool2, Settings2, TerminalSquare, Users, X } from "reicon-react"
 import { Bot, Brain } from "lucide-react"
 import { useChatContext } from "@copilotkit/react-ui"
 import {
@@ -206,17 +206,13 @@ export function Composer({
   return (
     <div className="copilotKitInputContainer">
       <div className="mrr-composer">
-        {!isProductDesign && (
-          <>
-            <AttachedArtifactChips thread={thread} />
-            <AttachedFileChips
-              files={stagedFiles}
-              errors={fileAttachmentErrors}
-              onRemove={removeStagedFile}
-              isDisabled={isAttachingDisabled}
-            />
-          </>
-        )}
+        {!isProductDesign && <AttachedArtifactChips thread={thread} />}
+        <AttachedFileChips
+          files={stagedFiles}
+          errors={fileAttachmentErrors}
+          onRemove={removeStagedFile}
+          isDisabled={isAttachingDisabled}
+        />
         <div className="mrr-composer-main">
           <textarea
             ref={textareaRef}
@@ -237,9 +233,6 @@ export function Composer({
         </div>
 
         <div className="mrr-composer-controls">
-          {!isProductDesign && (
-            <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
-          )}
           {!isProductDesign && run.flow ? (
             <>
               <FlowPicker run={run} flows={flows} onManageFlows={onManageFlows} />
@@ -280,44 +273,46 @@ export function Composer({
               )}
             </>
           )}
-          {!isProductDesign && <AttachArtifactsPill thread={thread} />}
-          {!isProductDesign && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="sr-only"
-                accept={attachmentInputAccept}
-                onChange={onAttachFiles}
-                disabled={isAttachingDisabled}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                className="rounded-full text-[11px]"
-                disabled={isAttachingDisabled}
-                onClick={openAttachmentPicker}
-              >
-                <Plus className="size-3" />
-                <span className="mrr-pill-label">Add</span>
-              </Button>
-            </>
-          )}
-          <div className="copilotKitInputControls mrr-composer-send">
-            <button
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {!isProductDesign && (
+              <ModeToggle flowActive={!!run.flow} onSingle={run.selectSingle} onFlow={selectFlowMode} />
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              accept={attachmentInputAccept}
+              onChange={onAttachFiles}
+              disabled={isAttachingDisabled}
+            />
+            <Button
               type="button"
-              disabled={sendDisabled}
-              onClick={() => (inProgress ? onStop?.() : send())}
-              data-copilotkit-in-progress={inProgress}
-              data-testid="copilot-send-button"
-              data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
-              className="copilotKitInputControlButton"
-              aria-label={buttonAlt}
+              variant="outline"
+              size="xs"
+              className="rounded-full text-[11px]"
+              disabled={isAttachingDisabled}
+              onClick={openAttachmentPicker}
+              title="Attach files"
+              aria-label="Attach files"
             >
-              {buttonIcon}
-            </button>
+              <Paperclip className="size-3" />
+            </Button>
+            {!isProductDesign && <AttachArtifactsPill thread={thread} />}
+            <div className="copilotKitInputControls mrr-composer-send">
+              <button
+                type="button"
+                disabled={sendDisabled}
+                onClick={() => (inProgress ? onStop?.() : send())}
+                data-copilotkit-in-progress={inProgress}
+                data-testid="copilot-send-button"
+                data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
+                className="copilotKitInputControlButton"
+                aria-label={buttonAlt}
+              >
+                {buttonIcon}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -726,11 +721,11 @@ function AttachArtifactsPill({ thread }: { thread: Thread }) {
           className={cn("rounded-full text-[11px]", attachedIds.size > 0 && "border-primary/50 text-primary")}
           title="Attach product-design artifacts"
         >
-          <Paperclip className="size-3" />
+          <PenTool2 className="size-3" />
           {attachedIds.size > 0 && <span className="mrr-pill-label">{attachedIds.size}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-1">
+      <PopoverContent align="end" className="w-80 p-1">
         <p className="px-2 py-1.5 text-xs text-muted-foreground">
           Attached artifacts are injected into this thread's runs.
         </p>

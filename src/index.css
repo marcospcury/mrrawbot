@@ -245,6 +245,29 @@
   .animate-mrr-in {
     animation: mrr-fade-in 0.18s ease-out both;
   }
+
+  /* Text shimmer for in-progress titles: a bright band sweeps across the text. */
+  @keyframes mrr-shimmer {
+    from {
+      background-position: 200% center;
+    }
+    to {
+      background-position: -200% center;
+    }
+  }
+  .mrr-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--muted-foreground) 40%,
+      var(--foreground) 50%,
+      var(--muted-foreground) 60%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: mrr-shimmer 2.5s linear infinite;
+  }
 }
 
 /* ---- CopilotKit theming: map its CSS variables onto our zinc tokens ---- */

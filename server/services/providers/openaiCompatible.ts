@@ -24,6 +24,8 @@ export interface OpenAICompatibleOptions {
   modelFilter?: (entry: Record<string, unknown>) => boolean
   /** Whether the /models listing requires the API key (e.g. Cerebras). */
   listRequiresKey?: boolean
+  /** Cost estimation attached to normalized usage (static table or cached live catalog). */
+  estimateCostUsd?: ChatProviderAdapter["estimateCostUsd"]
 }
 
 /** These providers accept OpenAI's `reasoning_effort`, which tops out at "high". */
@@ -68,6 +70,7 @@ export function openAICompatibleAdapter(opts: OpenAICompatibleOptions): ChatProv
     detail: () => (opts.apiKey() ? `${opts.label} API at ${opts.baseUrl()}` : "No API key configured"),
     configHint: () => (opts.apiKey() ? null : opts.setupHint),
     defaultModel: () => opts.defaultModel(),
+    estimateCostUsd: opts.estimateCostUsd,
     listModels: async () => {
       const key = opts.apiKey()
       const live =
