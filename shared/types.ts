@@ -1,9 +1,9 @@
 // Shared contracts between the Express backend and the React frontend.
 // Keep this framework-free so both sides can import it.
 
-export type Provider = "ollama" | "codex" | "claude"
+export type Provider = "ollama" | "codex" | "claude" | "openrouter" | "huggingface" | "cerebras"
 
-export const PROVIDERS: Provider[] = ["claude", "codex", "ollama"]
+export const PROVIDERS: Provider[] = ["claude", "codex", "ollama", "openrouter", "huggingface", "cerebras"]
 
 export interface ModelEntry {
   id: string
@@ -19,6 +19,8 @@ export interface ModelEntry {
  * - Claude: Agent SDK `effort` — low | medium | high | xhigh | max
  * - Codex:  `model_reasoning_effort` — low | medium | high | xhigh (current GPT-5.x models)
  * - Ollama: `think` on/off (low = off, anything higher = on)
+ * - OpenRouter / Hugging Face / Cerebras: OpenAI-compatible `reasoning_effort`
+ *   (low | medium | high), sent only when the model supports it
  *
  * NOTE: Codex "Fast mode" is a separate service tier (`service_tier = "fast"`),
  * NOT a reasoning-effort level — it is intentionally not modeled here.
@@ -36,6 +38,10 @@ export function effortsFor(provider: Provider): Effort[] {
       return ["low", "medium", "high", "xhigh"]
     case "ollama":
       return ["low", "high"] // low = no thinking, high = thinking
+    case "openrouter":
+    case "huggingface":
+    case "cerebras":
+      return ["low", "medium", "high"]
   }
 }
 
@@ -96,7 +102,7 @@ export const ROLES: RoleInfo[] = [
   },
   {
     id: "distributed-systems-architect",
-    name: "Distributed Systems Architect",
+    name: "System Architect",
     description: "Designs scalable, reliable, distributed architectures.",
     surface: "build",
   },
@@ -583,12 +589,21 @@ export interface ProviderConfig {
   codexBinPathStored: boolean
   ollamaApiKeySet: boolean
   ollamaApiKeyStored: boolean
+  openrouterApiKeySet: boolean
+  openrouterApiKeyStored: boolean
+  huggingfaceApiKeySet: boolean
+  huggingfaceApiKeyStored: boolean
+  cerebrasApiKeySet: boolean
+  cerebrasApiKeyStored: boolean
 }
 
 export interface ProviderConfigPatch {
   claudeBinPath?: string | null
   codexBinPath?: string | null
   ollamaApiKey?: string | null
+  openrouterApiKey?: string | null
+  huggingfaceApiKey?: string | null
+  cerebrasApiKey?: string | null
 }
 
 export interface AppInfo {

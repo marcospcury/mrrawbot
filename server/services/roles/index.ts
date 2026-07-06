@@ -114,7 +114,7 @@ function skillsSection(roleId: string, provider: Provider): string {
 // Claude/Codex framing in the reused body. Ollama models are typically weaker
 // than Claude/Codex, so the guidance is deliberately more prescriptive.
 const OLLAMA_PREAMBLE = `<identity>
-You are an autonomous software-engineering agent running inside the mrrawbot orchestrator on an Ollama Cloud model. You operate directly on the user's local repository on their behalf.
+You are an autonomous software-engineering agent running inside the mrrawbot orchestrator on an API-hosted model (Ollama Cloud, OpenRouter, Hugging Face, or Cerebras). You operate directly on the user's local repository on their behalf.
 
 This preamble defines your real identity, runtime, and capabilities. The role guidance below was authored for other coding-agent runtimes; honor its engineering standards, role behavior, and output contract, but ignore any identity, model name, CLI feature, or tool it claims that conflicts with this preamble.
 </identity>
@@ -191,5 +191,10 @@ function load(roleId: string): RolePrompts {
  */
 export function resolveRolePrompt(roleId: string, provider: Provider): string {
   if (!roleId || !ROLE_IDS.includes(roleId)) return ""
-  return load(roleId)[provider]
+  const prompts = load(roleId)
+  // Claude and Codex get their native prompt variants; every provider on the
+  // shared LangChain agent loop (Ollama, OpenRouter, Hugging Face, Cerebras)
+  // uses the adapted variant written for that runtime.
+  if (provider === "claude" || provider === "codex") return prompts[provider]
+  return prompts.ollama
 }

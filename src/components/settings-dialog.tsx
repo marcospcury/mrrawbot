@@ -3,8 +3,9 @@ import { Check, Key, Monitor, Moon, Settings, Sun } from "reicon-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
-import type { ProviderConfig, ProviderConfigPatch } from "@shared/types"
+import type { Provider, ProviderConfig, ProviderConfigPatch, ProviderStatus } from "@shared/types"
 import { FileIcon } from "@/lib/file-icons"
+import { providerMeta } from "@/lib/format"
 import { useInfo, useProviderConfig, useProviders, useUpdateProviderConfig } from "@/lib/queries"
 import { useAppearance, type FileIconTheme } from "@/components/appearance-provider"
 import { useTheme } from "@/components/theme-provider"
@@ -33,108 +34,146 @@ const THEME_OPTIONS = [
   { value: "system", label: "System", icon: Monitor },
 ] as const
 
-function ProviderConfigForm({ config }: { config: ProviderConfig }) {
-  const update = useUpdateProviderConfig()
-  const [claudeBinPath, setClaudeBinPath] = useState("")
-  const [codexBinPath, setCodexBinPath] = useState("")
-  const [ollamaApiKey, setOllamaApiKey] = useState("")
+/** The one configurable field each provider exposes in Settings. */
+interface ProviderField {
+  key: keyof ProviderConfigPatch
+  label: string
+  /** Secret fields render as password inputs and never echo the stored value. */
+  secret: boolean
+}
 
-  // Re-seed the form whenever fresh config arrives (e.g. dialog reopened).
+const PROVIDER_FIELDS: Record<Provider, ProviderField> = {
+  claude: { key: "claudeBinPath", label: "Claude Code CLI path", secret: false },
+  codex: { key: "codexBinPath", label: "Codex CLI path", secret: false },
+  ollama: { key: "ollamaApiKey", label: "Ollama Cloud API key", secret: true },
+  openrouter: { key: "openrouterApiKey", label: "OpenRouter API key", secret: true },
+  huggingface: { key: "huggingfaceApiKey", label: "Hugging Face access token", secret: true },
+  cerebras: { key: "cerebrasApiKey", label: "Cerebras API key", secret: true },
+}
+
+function fieldState(provider: Provider, config: ProviderConfig): { stored: boolean; placeholder: string } {
+  switch (provider) {
+    case "claude":
+      return {
+        stored: config.claudeBinPathStored,
+        placeholder: config.claudeBinPathStored ? "" : `auto-detected: ${config.claudeBinPath}`,
+      }
+    case "codex":
+      return {
+        stored: config.codexBinPathStored,
+        placeholder: config.codexBinPathStored ? "" : `auto-detected: ${config.codexBinPath}`,
+      }
+    case "ollama":
+      return { stored: config.ollamaApiKeyStored, placeholder: keyPlaceholder(config.ollamaApiKeySet) }
+    case "openrouter":
+      return { stored: config.openrouterApiKeyStored, placeholder: keyPlaceholder(config.openrouterApiKeySet) }
+    case "huggingface":
+      return { stored: config.huggingfaceApiKeyStored, placeholder: keyPlaceholder(config.huggingfaceApiKeySet) }
+    case "cerebras":
+      return { stored: config.cerebrasApiKeyStored, placeholder: keyPlaceholder(config.cerebrasApiKeySet) }
+  }
+}
+
+function keyPlaceholder(set: boolean): string {
+  return set ? "configured — enter a new key to replace" : "not set"
+}
+
+function ProviderCard({ status, config }: { status: ProviderStatus; config: ProviderConfig }) {
+  const update = useUpdateProviderConfig()
+  const meta = providerMeta(status.provider)
+  const field = PROVIDER_FIELDS[status.provider]
+  const { stored, placeholder } = fieldState(status.provider, config)
+  const [value, setValue] = useState("")
+
+  // Re-seed whenever fresh config arrives (e.g. dialog reopened). Secrets
+  // never echo back; path fields show the stored override for editing.
   useEffect(() => {
-    setClaudeBinPath(config.claudeBinPathStored ? config.claudeBinPath : "")
-    setCodexBinPath(config.codexBinPathStored ? config.codexBinPath : "")
-    setOllamaApiKey("")
-  }, [config])
+    if (field.secret) setValue("")
+    else setValue(stored ? (status.provider === "claude" ? config.claudeBinPath : config.codexBinPath) : "")
+  }, [config, field.secret, status.provider, stored])
 
   const save = () => {
-    const patch: ProviderConfigPatch = {
-      claudeBinPath: claudeBinPath.trim() || null,
-      codexBinPath: codexBinPath.trim() || null,
-    }
-    // Only touch the key when the user typed one or explicitly cleared a stored one.
-    if (ollamaApiKey.trim()) patch.ollamaApiKey = ollamaApiKey.trim()
-    update.mutate(patch, {
-      onSuccess: () => toast.success("Provider configuration saved"),
-      onError: (err) => toast.error(err.message),
-    })
-  }
-
-  const clearKey = () => {
+    const next = value.trim()
+    // Secrets are only touched when a new one is typed; paths save as typed
+    // (blank clears the override back to auto-detection).
+    if (field.secret && !next) return
     update.mutate(
-      { ollamaApiKey: null },
+      { [field.key]: next || null },
       {
-        onSuccess: () => toast.success("Ollama API key removed"),
+        onSuccess: () => toast.success(`${meta.label} configuration saved`),
         onError: (err) => toast.error(err.message),
       },
     )
   }
 
+  const clear = () => {
+    update.mutate(
+      { [field.key]: null },
+      {
+        onSuccess: () => toast.success(`${meta.label} ${field.secret ? "key removed" : "path reset"}`),
+        onError: (err) => toast.error(err.message),
+      },
+    )
+  }
+
+  const inputId = `provider-${status.provider}`
+
   return (
     <Card className="gap-3 py-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Key className="size-3.5" /> Configuration
+          <span className={cn("size-2 shrink-0 rounded-full", meta.dotClassName)} aria-hidden />
+          {meta.label}
+          <span
+            className={cn(
+              "rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-none",
+              status.available
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-500",
+            )}
+          >
+            {status.available ? "ready" : "not set up"}
+          </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
-          Stored encrypted in the local database. Leave a field blank to use auto-detection.
-        </p>
-        <div className="space-y-1.5">
-          <Label htmlFor="claude-bin" className="text-xs">
-            Claude Code CLI path
-          </Label>
-          <Input
-            id="claude-bin"
-            value={claudeBinPath}
-            onChange={(e) => setClaudeBinPath(e.target.value)}
-            placeholder={config.claudeBinPathStored ? "" : `auto-detected: ${config.claudeBinPath}`}
-            className="font-mono text-xs"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="codex-bin" className="text-xs">
-            Codex CLI path
-          </Label>
-          <Input
-            id="codex-bin"
-            value={codexBinPath}
-            onChange={(e) => setCodexBinPath(e.target.value)}
-            placeholder={config.codexBinPathStored ? "" : `auto-detected: ${config.codexBinPath}`}
-            className="font-mono text-xs"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="ollama-key" className="text-xs">
-            Ollama Cloud API key
+      <CardContent className="space-y-2">
+        {status.detail && <p className="text-sm text-muted-foreground">{status.detail}</p>}
+        {status.configHint && <p className="text-xs text-amber-500">{status.configHint}</p>}
+        <div className="space-y-1.5 pt-1">
+          <Label htmlFor={inputId} className="flex items-center gap-1.5 text-xs">
+            <Key className="size-3" /> {field.label}
           </Label>
           <div className="flex items-center gap-2">
             <Input
-              id="ollama-key"
-              type="password"
-              value={ollamaApiKey}
-              onChange={(e) => setOllamaApiKey(e.target.value)}
-              placeholder={config.ollamaApiKeySet ? "configured — enter a new key to replace" : "not set"}
+              id={inputId}
+              type={field.secret ? "password" : "text"}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={placeholder}
               className="font-mono text-xs"
             />
-            {config.ollamaApiKeyStored && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={clearKey}
-                disabled={update.isPending}
-              >
+            <Button type="button" size="sm" onClick={save} disabled={update.isPending || (field.secret && !value.trim())}>
+              {update.isPending ? "Saving…" : "Save"}
+            </Button>
+            {stored && (
+              <Button type="button" variant="outline" size="sm" onClick={clear} disabled={update.isPending}>
                 Remove
               </Button>
             )}
           </div>
         </div>
-        <div className="flex justify-end pt-1">
-          <Button size="sm" onClick={save} disabled={update.isPending}>
-            {update.isPending ? "Saving…" : "Save"}
-          </Button>
-        </div>
+        {status.models.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {status.models.slice(0, 4).map((m) => (
+              <Badge key={m} variant="outline" className="font-mono text-[10px]">
+                {m}
+              </Badge>
+            ))}
+            {status.models.length > 4 && (
+              <span className="text-xs text-muted-foreground">+{status.models.length - 4} more</span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -238,44 +277,14 @@ export function SettingsDialog({
           <TabsContent value="providers" className="min-h-0">
             <ScrollArea className="h-[min(42rem,calc(100vh-14rem))]">
               <div className="space-y-3 pr-3">
-                {providerConfigQuery.data && <ProviderConfigForm config={providerConfigQuery.data} />}
-                {providers.map((p) => (
-                  <Card key={p.provider} className="gap-3 py-4">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <span
-                          className={cn(
-                            "size-2 shrink-0 rounded-full",
-                            p.available ? "bg-emerald-500" : "bg-amber-500",
-                          )}
-                          aria-hidden
-                        />
-                        {p.label}
-                        <span className="text-xs font-normal text-muted-foreground">
-                          {p.available ? "available" : "unavailable"}
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {p.detail && <p className="text-sm text-muted-foreground">{p.detail}</p>}
-                      {p.configHint && <p className="text-xs text-amber-500">{p.configHint}</p>}
-                      {p.models.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          {p.models.slice(0, 4).map((m) => (
-                            <Badge key={m} variant="outline" className="font-mono text-[10px]">
-                              {m}
-                            </Badge>
-                          ))}
-                          {p.models.length > 4 && (
-                            <span className="text-xs text-muted-foreground">
-                              +{p.models.length - 4} more
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                <p className="text-xs text-muted-foreground">
+                  Keys and paths are stored encrypted in the local database. Providers without
+                  credentials stay visible but can’t run until set up.
+                </p>
+                {providerConfigQuery.data &&
+                  providers.map((p) => (
+                    <ProviderCard key={p.provider} status={p} config={providerConfigQuery.data} />
+                  ))}
                 {providers.length === 0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">
                     {providersQuery.isLoading ? "Loading providers…" : "No providers configured."}

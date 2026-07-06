@@ -17,7 +17,7 @@ import { getProject } from "../../db/repos/projects.ts"
 import { saveRun } from "../../db/repos/runs.ts"
 import { saveMessage } from "../../db/repos/messages.ts"
 import { autoNameThread, getThread, threadCanAutoName, touchThread } from "../../db/repos/threads.ts"
-import { providerLabel } from "../providers/status.ts"
+import { providerLabel, unconfiguredProviders } from "../providers/status.ts"
 import { resolveFlowSteps, runFlow } from "../orchestrator/engine.ts"
 import { runProductDesignTurn } from "../orchestrator/productDesign.ts"
 import type { OrchEvent } from "../orchestrator/events.ts"
@@ -213,6 +213,20 @@ export class MrrawbotAgent extends AbstractAgent {
           if (resolveFlowSteps(flow).length === 0) throw new Error(`Flow "${flow.name}" has no steps.`)
         }
         const orderedSteps = flow ? resolveFlowSteps(flow) : []
+
+        // Fail fast (before any step runs) when the run needs providers that
+        // aren't set up. The flow stays selectable — it just can't run until
+        // the providers are configured or swapped for available ones.
+        const missing = unconfiguredProviders(
+          isProductDesign ? [session.provider] : orderedSteps.map((s) => s.provider),
+        )
+        if (missing.length > 0) {
+          const names = missing.map(providerLabel).join(", ")
+          throw new Error(
+            `This run needs providers that aren't set up yet: ${names}. ` +
+              `Configure them in Settings → Providers, or switch to a different provider.`,
+          )
+        }
 
         const lastUser = [...messages].reverse().find((m) => m.role === "user")
         const task = contentToString(lastUser?.content).trim()

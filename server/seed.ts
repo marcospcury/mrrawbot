@@ -22,10 +22,13 @@ import { env } from "./env.ts"
  *   deleted stay deleted (tombstoned by `deleteFlow`).
  */
 
-const M = {
+const M: Record<Provider, string> = {
   claude: env.claudeDefaultModel,
   codex: env.codexDefaultModel,
   ollama: env.ollamaDefaultModel,
+  openrouter: env.openrouterDefaultModel,
+  huggingface: env.huggingfaceDefaultModel,
+  cerebras: env.cerebrasDefaultModel,
 }
 
 // Flow-specific nudge for a Reviewer step that gates a review loop: the role's

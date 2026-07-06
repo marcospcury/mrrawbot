@@ -16,10 +16,10 @@ export function sortModels(catalog: ModelEntry[]): ModelEntry[] {
 }
 
 export function shortModelName(model: string): string {
+  // Drop the vendor/org prefix ("anthropic/...", "Qwen/...", "moonshotai/...")
+  // — the provider dot next to the pill already carries the identity.
   return model
-    .replace(/^anthropic\//, "")
-    .replace(/^openai\//, "")
-    .replace(/^ollama\//, "")
+    .replace(/^[\w.-]+\//, "")
     .replace(/:cloud$/, "")
     .replace(/-cloud$/, "")
 }

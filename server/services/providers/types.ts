@@ -1,4 +1,5 @@
-import type { Effort, StepUsage } from "@shared/types.ts"
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
+import type { Effort, Provider, StepUsage } from "@shared/types.ts"
 
 export interface ProviderRunInput {
   /** Full prompt for the agent (system + role + task + accumulated context). */
@@ -42,3 +43,36 @@ export interface ProviderRunOutput {
 }
 
 export type ProviderRunner = (input: ProviderRunInput) => Promise<ProviderRunOutput>
+
+/** A chat model that can bind tools (every model we run agents on must). */
+export type ToolCallingChatModel = BaseChatModel & { bindTools: NonNullable<BaseChatModel["bindTools"]> }
+
+export interface ChatModelOptions {
+  model: string
+  temperature: number | null
+  effort: Effort | null
+}
+
+/**
+ * Adapter for a provider that runs through the shared LangChain agent loop
+ * (`runChatAgent`). Claude and Codex have their own native harnesses and don't
+ * use this; every API-based provider (Ollama Cloud, OpenRouter, Hugging Face,
+ * Cerebras, ...) is just one of these — adding a provider means writing an
+ * adapter, registering it, and adding it to the shared `Provider` union.
+ */
+export interface ChatProviderAdapter {
+  provider: Provider
+  label: string
+  /** True when the provider has what it needs to run (API key, etc.). */
+  isConfigured(): boolean
+  /** One-line status shown in Settings → Providers. */
+  detail(): string
+  /** Setup instruction shown when unconfigured (null when ready). */
+  configHint(): string | null
+  defaultModel(): string
+  /** Model catalog: live listing when reachable, merged with a static fallback. */
+  listModels(): Promise<string[]>
+  makeChatModel(opts: ChatModelOptions): ToolCallingChatModel
+  /** Optional cost estimation attached to normalized usage. */
+  estimateCostUsd?(model: string, usage: StepUsage): number | undefined
+}
