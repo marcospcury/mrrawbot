@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.0](https://github.com/marcospcury/mrrawbot/compare/v1.7.0...v1.8.0) (2026-07-06)
+
+
+### Features
+
+* migrate app settings dialog to full page ([#19](https://github.com/marcospcury/mrrawbot/issues/19)) ([9e092d4](https://github.com/marcospcury/mrrawbot/commit/9e092d49a05e33061f4050aae36cb8eb2591dc8a))
+* polish composer UX and add no-thread landing view ([#20](https://github.com/marcospcury/mrrawbot/issues/20)) ([566f71c](https://github.com/marcospcury/mrrawbot/commit/566f71cb88ff4b9a04b82b752d776261cbd00c27))
+* polish run UI and add cost estimates for all providers ([#17](https://github.com/marcospcury/mrrawbot/issues/17)) ([9c95dec](https://github.com/marcospcury/mrrawbot/commit/9c95dec3ee1c5a8ae3e3afa8d980d45c301eba84))
+* remove anthropic sdk from the bundle ([7c95bb8](https://github.com/marcospcury/mrrawbot/commit/7c95bb8dcf842ed85d741718cd66f45e1b461569))
+
 ## [1.7.0](https://github.com/marcospcury/mrrawbot/compare/v1.6.0...v1.7.0) (2026-07-06)
 
 
