@@ -73,6 +73,6 @@ export interface ChatProviderAdapter {
   /** Model catalog: live listing when reachable, merged with a static fallback. */
   listModels(): Promise<string[]>
   makeChatModel(opts: ChatModelOptions): ToolCallingChatModel
-  /** Optional cost estimation attached to normalized usage. */
-  estimateCostUsd?(model: string, usage: StepUsage): number | undefined
+  /** Optional cost estimation attached to normalized usage. May consult a cached live catalog. */
+  estimateCostUsd?(model: string, usage: StepUsage): number | undefined | Promise<number | undefined>
 }

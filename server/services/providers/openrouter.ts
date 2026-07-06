@@ -1,5 +1,6 @@
 import { env } from "../../env.ts"
 import { openAICompatibleAdapter } from "./openaiCompatible.ts"
+import { estimateOpenRouterCostUsd } from "./pricing.ts"
 import type { ChatProviderAdapter } from "./types.ts"
 
 // Snapshot of popular tool-calling models on OpenRouter, 2026-07-05. The live
@@ -37,4 +38,6 @@ export const openrouterAdapter: ChatProviderAdapter = openAICompatibleAdapter({
   // the provider is actually usable — unconfigured providers show the curated
   // fallback list instead of hundreds of unusable entries.
   listRequiresKey: true,
+  // Per-token pricing comes from the same public catalog, cached for an hour.
+  estimateCostUsd: estimateOpenRouterCostUsd,
 })

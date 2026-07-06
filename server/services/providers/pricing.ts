@@ -1,4 +1,5 @@
 import type { StepUsage } from "@shared/types.ts"
+import { env } from "../../env.ts"
 
 type TokenPrice = {
   inputPerMillion: number
@@ -136,3 +137,125 @@ export function estimateOllamaCostUsd(model: string, usage: StepUsage | null): n
   const price = OLLAMA_UPSTREAM_PRICES[normalizeOllamaPriceKey(model)]
   return price ? tokenCostUsd(usage, selectPrice(usage, price)) : undefined
 }
+
+const CEREBRAS_PRICES: Record<string, TokenPrice> = {
+  // Snapshot from cerebras.ai/pricing + artificialanalysis.ai/providers/cerebras,
+  // 2026-07-05. Cerebras' API exposes no pricing, so this is hand-maintained.
+  "gpt-oss-120b": { inputPerMillion: 0.35, outputPerMillion: 0.75 },
+  "llama-3.3-70b": { inputPerMillion: 0.85, outputPerMillion: 1.2 },
+  "llama3.1-8b": { inputPerMillion: 0.1, outputPerMillion: 0.1 },
+  "qwen-3-32b": { inputPerMillion: 0.4, outputPerMillion: 0.8 },
+  "qwen-3-235b-a22b-instruct-2507": { inputPerMillion: 0.6, outputPerMillion: 1.2 },
+  "qwen-3-coder-480b": { inputPerMillion: 2, outputPerMillion: 2 },
+  "zai-glm-4.6": { inputPerMillion: 2.25, outputPerMillion: 2.75 },
+  "zai-glm-4.7": { inputPerMillion: 2.25, outputPerMillion: 2.75 },
+  "gemma-4-31b": { inputPerMillion: 0.99, outputPerMillion: 1.49 },
+}
+
+export function estimateCerebrasCostUsd(model: string, usage: StepUsage | null): number | undefined {
+  if (!usage) return undefined
+  const price = CEREBRAS_PRICES[model.trim().toLowerCase()]
+  return price ? tokenCostUsd(usage, price) : undefined
+}
+
+type PriceCatalog = Map<string, TokenPrice>
+
+/**
+ * Cost estimator backed by a provider's live model catalog (OpenRouter and the
+ * Hugging Face router both publish per-model pricing on their /models
+ * endpoints). The catalog is cached for an hour; a failed refresh keeps
+ * serving the stale copy.
+ */
+export function makeCatalogCostEstimator(
+  fetchCatalog: () => Promise<PriceCatalog>,
+  ttlMs = 60 * 60 * 1000,
+): (model: string, usage: StepUsage | null) => Promise<number | undefined> {
+  let catalog: PriceCatalog | null = null
+  let fetchedAt = 0
+  let inflight: Promise<void> | null = null
+
+  return async (model, usage) => {
+    if (!usage) return undefined
+    if (!catalog || Date.now() - fetchedAt > ttlMs) {
+      inflight ??= fetchCatalog()
+        .then((next) => {
+          catalog = next
+          fetchedAt = Date.now()
+        })
+        .catch(() => {
+          // Keep the stale catalog (or none); retry on the next estimate.
+          fetchedAt = Date.now()
+        })
+        .finally(() => {
+          inflight = null
+        })
+      await inflight
+    }
+    const price = catalog?.get(model.trim().toLowerCase())
+    return price ? tokenCostUsd(usage, price) : undefined
+  }
+}
+
+async function fetchProviderModels(baseUrl: string): Promise<Array<Record<string, unknown>>> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), 5000)
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/models`, { signal: ctrl.signal })
+    if (!res.ok) throw new Error(`models listing failed: ${res.status}`)
+    const data = (await res.json()) as { data?: Array<Record<string, unknown>> }
+    return data.data ?? []
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+function asPositiveNumber(value: unknown): number | undefined {
+  const n = typeof value === "string" ? Number.parseFloat(value) : typeof value === "number" ? value : NaN
+  return Number.isFinite(n) && n >= 0 ? n : undefined
+}
+
+/** OpenRouter's catalog prices are USD per single token, as strings. */
+async function fetchOpenRouterCatalog(): Promise<PriceCatalog> {
+  const catalog: PriceCatalog = new Map()
+  for (const m of await fetchProviderModels(env.openrouterBaseUrl)) {
+    const id = typeof m.id === "string" ? m.id.toLowerCase() : ""
+    const pricing = m.pricing as Record<string, unknown> | undefined
+    const perMillion = (v: unknown) => {
+      const n = asPositiveNumber(v)
+      return n === undefined ? undefined : n * 1_000_000
+    }
+    const inputPerMillion = perMillion(pricing?.prompt)
+    const outputPerMillion = perMillion(pricing?.completion)
+    if (!id || inputPerMillion === undefined || outputPerMillion === undefined) continue
+    catalog.set(id, { inputPerMillion, cachedInputPerMillion: perMillion(pricing?.input_cache_read), outputPerMillion })
+  }
+  return catalog
+}
+
+/**
+ * The Hugging Face router lists each model's upstream providers with USD
+ * per-million pricing. Requests route to one of them; the first live provider
+ * prices the bare model id, and every provider is also keyed explicitly so
+ * `model:provider` ids match exactly.
+ */
+async function fetchHuggingFaceCatalog(): Promise<PriceCatalog> {
+  const catalog: PriceCatalog = new Map()
+  for (const m of await fetchProviderModels(env.huggingfaceBaseUrl)) {
+    const id = typeof m.id === "string" ? m.id.toLowerCase() : ""
+    if (!id) continue
+    const providers = Array.isArray(m.providers) ? (m.providers as Array<Record<string, unknown>>) : []
+    for (const p of providers) {
+      const pricing = p.pricing as Record<string, unknown> | undefined
+      const inputPerMillion = asPositiveNumber(pricing?.input)
+      const outputPerMillion = asPositiveNumber(pricing?.output)
+      if (inputPerMillion === undefined || outputPerMillion === undefined) continue
+      const price = { inputPerMillion, outputPerMillion }
+      if (typeof p.provider === "string") catalog.set(`${id}:${p.provider.toLowerCase()}`, price)
+      if (!catalog.has(id) && p.status === "live") catalog.set(id, price)
+    }
+  }
+  return catalog
+}
+
+export const estimateOpenRouterCostUsd = makeCatalogCostEstimator(fetchOpenRouterCatalog)
+export const estimateHuggingFaceCostUsd = makeCatalogCostEstimator(fetchHuggingFaceCatalog)

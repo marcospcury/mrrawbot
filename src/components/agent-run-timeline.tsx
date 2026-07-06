@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { AlertCircle, Check, ChevronDown, ChevronRight, Hierarchy2, Loader } from "reicon-react"
+import { AlertCircle, Check, ChevronDown, ChevronRight, Hierarchy2 } from "reicon-react"
 import { CircleDashed } from "lucide-react"
 import type { AgentRunState, RunStep } from "@shared/types"
+import { DotMatrixLoader } from "@/components/dot-matrix-loader"
 import { ProviderPill } from "@/components/provider-pill"
 import { durationLabel } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -17,8 +18,6 @@ function usageLabel(usage: RunStep["usage"]): string | null {
   const parts: string[] = []
   if (usage.inputTokens && usage.inputTokens > 0) parts.push(`${formatTokenCount(usage.inputTokens)} in`)
   if (usage.outputTokens && usage.outputTokens > 0) parts.push(`${formatTokenCount(usage.outputTokens)} out`)
-  if (usage.cachedInputTokens && usage.cachedInputTokens > 0) parts.push(`${formatTokenCount(usage.cachedInputTokens)} cache`)
-  if (usage.reasoningOutputTokens && usage.reasoningOutputTokens > 0) parts.push(`${formatTokenCount(usage.reasoningOutputTokens)} reason`)
   if (parts.length === 0 && usage.totalTokens && usage.totalTokens > 0) return `${formatTokenCount(usage.totalTokens)} tok`
   return parts.length > 0 ? parts.join(" · ") : null
 }
@@ -40,13 +39,9 @@ export function AgentRunTimeline({
     <div className="animate-mrr-in my-2 w-full overflow-hidden rounded-xl border bg-card/60 text-card-foreground shadow-sm">
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
         <Hierarchy2 className="size-4 text-muted-foreground" />
-        <span className="text-sm font-medium">{state.flowName}</span>
+        <span className={cn("text-sm font-medium", running && "mrr-shimmer")}>{state.flowName}</span>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          {running ? (
-            <span className="flex items-center gap-1.5 text-foreground">
-              <Loader className="size-3.5 animate-spin" /> Running
-            </span>
-          ) : state.status === "error" ? (
+          {running ? null : state.status === "error" ? (
             <span className="flex items-center gap-1.5 text-destructive">
               <AlertCircle className="size-3.5" /> Failed
             </span>
@@ -57,7 +52,7 @@ export function AgentRunTimeline({
               <Check className="size-3.5" /> Done
             </span>
           )}
-          <span>· {durationLabel(state.startedAt, state.endedAt)}</span>
+          <span>{running ? "" : "· "}{durationLabel(state.startedAt, state.endedAt)}</span>
         </div>
       </div>
 
@@ -139,7 +134,7 @@ function StepIcon({ status, isLast }: { status: RunStep["status"]; isLast: boole
     <span className="relative flex size-[18px] shrink-0 items-center justify-center">
       {!isLast && <span className="absolute left-1/2 top-[18px] h-[calc(100%+10px)] w-px -translate-x-1/2 bg-border" />}
       {status === "running" ? (
-        <Loader className="size-[18px] animate-spin text-foreground" />
+        <DotMatrixLoader boxSize={18} className="text-foreground" />
       ) : status === "done" ? (
         <Check className="size-[18px] rounded-full bg-emerald-500/15 p-0.5 text-emerald-400" />
       ) : status === "error" ? (

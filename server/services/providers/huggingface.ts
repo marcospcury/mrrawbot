@@ -1,5 +1,6 @@
 import { env } from "../../env.ts"
 import { openAICompatibleAdapter } from "./openaiCompatible.ts"
+import { estimateHuggingFaceCostUsd } from "./pricing.ts"
 import type { ChatProviderAdapter } from "./types.ts"
 
 // Snapshot of tool-calling models on the Hugging Face Inference Providers
@@ -27,4 +28,6 @@ export const huggingfaceAdapter: ChatProviderAdapter = openAICompatibleAdapter({
   // Public listing endpoint, but keep unconfigured providers on the curated
   // fallback list (same reasoning as OpenRouter).
   listRequiresKey: true,
+  // The router's public catalog carries per-provider USD/1M pricing; cached for an hour.
+  estimateCostUsd: estimateHuggingFaceCostUsd,
 })

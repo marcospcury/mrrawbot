@@ -214,6 +214,7 @@ export function ChatPanel({
       <div className={cn("relative min-h-0 flex-1")}>
         <CopilotChat
           className="mrr-chat mrr-markdown h-full"
+          icons={{ activityIcon: null }}
           labels={{
             placeholder:
               thread.kind === "product-design" ? "Describe the product or feature…" : "Describe a coding task…",

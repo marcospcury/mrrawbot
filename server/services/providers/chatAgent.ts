@@ -175,7 +175,7 @@ export async function runChatAgent(adapter: ChatProviderAdapter, input: Provider
   const compacted = compactUsage(usage)
   const withCost =
     compacted && adapter.estimateCostUsd
-      ? { ...compacted, costUsd: compacted.costUsd ?? adapter.estimateCostUsd(model, compacted) }
+      ? { ...compacted, costUsd: compacted.costUsd ?? (await adapter.estimateCostUsd(model, compacted)) }
       : compacted
   return { text: finalText, usage: withCost }
 }
